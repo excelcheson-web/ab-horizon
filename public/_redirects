@@ -1,1 +1,5 @@
-/* /index.html   200
+# Cloudflare Pages – SPA routing
+# Specific HTML entry points are served directly from dist (no redirect needed)
+# The catch-all below handles client-side routing for the React SPA
+
+/*    /index.html   200
