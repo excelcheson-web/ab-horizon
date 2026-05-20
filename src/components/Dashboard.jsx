@@ -17,6 +17,13 @@ import FinancialServices from './FinancialServices'
 import CryptoPage from './CryptoPage'
 import TDLogo from './TDLogo'
 import { updateUserProfile, logoutUser } from '../services/firebaseAuth'
+import {
+  isBiometricSupported,
+  isPlatformAuthenticatorAvailable,
+  isBiometricRegistered,
+  registerBiometric,
+  clearBiometric,
+} from '../services/biometricService'
 import { db } from '../services/firebaseClient'
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { syncBalanceToFirestore } from '../services/adminService'
@@ -241,6 +248,9 @@ export default function Dashboard({ profile, onLogout }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark')
   const [adToast, setAdToast] = useState(null)
   const [showLogoMenu, setShowLogoMenu] = useState(false)
+  const [biometricRegistered, setBiometricRegistered] = useState(() => isBiometricRegistered())
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false)
+  const [biometricToast, setBiometricToast] = useState(null)
   const [overlayLoading, setOverlayLoading] = useState(false)
   const [showGreeting, setShowGreeting] = useState(true)
   const [profilePic, setProfilePic] = useState(profile?.profilePic || null)
@@ -314,6 +324,62 @@ export default function Dashboard({ profile, onLogout }) {
 
   // Call on mount
   useEffect(() => { fetchBalance() }, [fetchBalance])
+
+  // Prompt to set up biometrics after first login (once per device)
+  useEffect(() => {
+    const hasPrompted = localStorage.getItem('biometric_prompt_shown')
+    if (hasPrompted || isBiometricRegistered()) return
+    isPlatformAuthenticatorAvailable().then(available => {
+      if (available) {
+        // Delay so dashboard loads first
+        setTimeout(() => setShowBiometricPrompt(true), 3000)
+      }
+    })
+  }, [])
+
+  const handleEnableBiometric = async () => {
+    setShowBiometricPrompt(false)
+    localStorage.setItem('biometric_prompt_shown', '1')
+    try {
+      const uid   = profile?.uid || profile?.id
+      const email = profile?.email || localStorage.getItem('user_email') || ''
+      const name  = profile?.name || profile?.full_name || localStorage.getItem('user_name') || ''
+      await registerBiometric({ uid, email, name })
+      setBiometricRegistered(true)
+      setBiometricToast({ type: 'success', msg: 'Face ID / Biometrics enabled successfully!' })
+    } catch (err) {
+      if (err.name === 'NotAllowedError') {
+        setBiometricToast({ type: 'info', msg: 'Biometric setup cancelled. You can enable it anytime from your profile menu.' })
+      } else {
+        setBiometricToast({ type: 'error', msg: 'Could not enable biometrics: ' + (err.message || 'Unknown error') })
+      }
+    }
+    setTimeout(() => setBiometricToast(null), 5000)
+  }
+
+  const handleToggleBiometric = async () => {
+    setShowLogoMenu(false)
+    if (biometricRegistered) {
+      clearBiometric()
+      setBiometricRegistered(false)
+      setBiometricToast({ type: 'info', msg: 'Biometric login disabled.' })
+    } else {
+      try {
+        const uid   = profile?.uid || profile?.id
+        const email = profile?.email || localStorage.getItem('user_email') || ''
+        const name  = profile?.name || profile?.full_name || localStorage.getItem('user_name') || ''
+        await registerBiometric({ uid, email, name })
+        setBiometricRegistered(true)
+        localStorage.setItem('biometric_prompt_shown', '1')
+        setBiometricToast({ type: 'success', msg: 'Face ID / Biometrics enabled! Use it next time you sign in.' })
+      } catch (err) {
+        if (err.name !== 'NotAllowedError') {
+          setBiometricToast({ type: 'error', msg: 'Could not enable biometrics on this device.' })
+        }
+      }
+    }
+    setTimeout(() => setBiometricToast(null), 5000)
+  }
 
   /** Show a brief loading spinner, then execute the action */
   const openWithLoading = useCallback((action) => {
@@ -541,6 +607,41 @@ export default function Dashboard({ profile, onLogout }) {
           </div>
         </div>
       )}
+      {/* ── Biometric setup prompt (shown once after first login) ── */}
+      {showBiometricPrompt && (
+        <div className="biometric-prompt-overlay" onClick={() => { setShowBiometricPrompt(false); localStorage.setItem('biometric_prompt_shown', '1') }}>
+          <div className="biometric-prompt-card" onClick={e => e.stopPropagation()}>
+            <div className="biometric-prompt-icon">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-3.5 2.5-6 6-6 2 0 3.8 1 4.8 2.5"/>
+                <path d="M10 12c0 4-1 8-3 11"/><path d="M14 12c0 2.5-.5 5-1.5 7.5"/><path d="M18 11c0 3-1 6.5-3 9.5"/>
+                <path d="M22 12c0 2-1 4-2 6"/>
+              </svg>
+            </div>
+            <h3 className="biometric-prompt-title">Enable Face ID / Biometrics?</h3>
+            <p className="biometric-prompt-desc">
+              Sign in instantly next time using your device's Face ID, fingerprint, or Windows Hello — no password needed.
+            </p>
+            <button className="biometric-prompt-btn biometric-prompt-btn--primary" onClick={handleEnableBiometric}>
+              Enable Biometrics
+            </button>
+            <button className="biometric-prompt-btn biometric-prompt-btn--ghost" onClick={() => { setShowBiometricPrompt(false); localStorage.setItem('biometric_prompt_shown', '1') }}>
+              Not Now
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Biometric toast ─────────────────────────────────────── */}
+      {biometricToast && (
+        <div className={`biometric-toast biometric-toast--${biometricToast.type}`} onClick={() => setBiometricToast(null)}>
+          <span className="biometric-toast-icon">
+            {biometricToast.type === 'success' ? '✓' : biometricToast.type === 'error' ? '✕' : 'ℹ'}
+          </span>
+          <span>{biometricToast.msg}</span>
+        </div>
+      )}
+
       {/* Email sent toast */}
       {emailToast && (
         <div className="email-toast" onClick={() => setEmailToast(null)}>
@@ -714,6 +815,17 @@ export default function Dashboard({ profile, onLogout }) {
                     </button>
                   ))}
                 </div>
+              )}
+              {/* ── Biometric toggle ──────────────────────── */}
+              {isBiometricSupported() && (
+                <button className="db-logo-menu-item" onClick={handleToggleBiometric}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/><path d="M5 19.5C5.5 18 6 15 6 12c0-3.5 2.5-6 6-6 2 0 3.8 1 4.8 2.5"/>
+                    <path d="M10 12c0 4-1 8-3 11"/><path d="M14 12c0 2.5-.5 5-1.5 7.5"/><path d="M18 11c0 3-1 6.5-3 9.5"/>
+                    <path d="M22 12c0 2-1 4-2 6"/>
+                  </svg>
+                  {biometricRegistered ? 'Disable Face ID / Biometrics' : 'Enable Face ID / Biometrics'}
+                </button>
               )}
               <div className="db-logo-menu-divider" />
               <button className="db-logo-menu-item db-logo-menu-item--logout" onClick={async () => { setShowLogoMenu(false); try { await logoutUser() } catch {} localStorage.removeItem('securebank_user'); localStorage.removeItem('user_account_type'); localStorage.removeItem('privacy_state'); onLogout() }}>

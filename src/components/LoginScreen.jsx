@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import TDLogo from './TDLogo'
 import { loginUser } from '../services/firebaseAuth'
+import {
+  isBiometricSupported,
+  isBiometricRegistered,
+  authenticateWithBiometric,
+} from '../services/biometricService'
 import { PrivacyPolicyModal, TermsOfServiceModal, CookiePolicyModal, ComplianceModal } from './LegalModals'
 import { ContactUsModal, SupportCenterModal } from './ContactModals'
 
@@ -178,14 +183,54 @@ export default function LoginScreen({ onLogin, onRegister }) {
     }
   }
 
-  const handleFaceId = () => {
+  const handleFaceId = async () => {
     if (faceIdState === 'scanning') return
-    setError(''); setFaceIdState('scanning')
-    setTimeout(() => {
-      const s = getStoredUser()
-      if (s) { setFaceIdState('success'); setTimeout(() => onLogin(s), 600) }
-      else   { setFaceIdState('denied');  setTimeout(() => setFaceIdState('idle'), 3000) }
-    }, 5000)
+    setError('')
+
+    // Check browser support
+    if (!isBiometricSupported()) {
+      setError('Biometric authentication is not supported on this device or browser.')
+      return
+    }
+
+    // Check if registered
+    if (!isBiometricRegistered()) {
+      setError('No biometric registered. Sign in with your password first, then enable Face ID from your account settings.')
+      return
+    }
+
+    setFaceIdState('scanning')
+    try {
+      // Triggers the real device Face ID / fingerprint / Windows Hello prompt
+      const verified = await authenticateWithBiometric()
+
+      if (verified) {
+        const stored = getStoredUser()
+        if (stored) {
+          setFaceIdState('success')
+          setTimeout(() => onLogin(stored), 600)
+        } else {
+          // Biometric passed but session expired
+          setFaceIdState('denied')
+          setError('Session expired. Please sign in with your password to continue.')
+          setTimeout(() => setFaceIdState('idle'), 3000)
+        }
+      }
+    } catch (err) {
+      setFaceIdState('denied')
+      if (err.message === 'NO_CREDENTIAL') {
+        setError('No biometric registered. Please sign in with your password first.')
+      } else if (err.name === 'NotAllowedError') {
+        setError('Biometric authentication was cancelled. Try again or use your password.')
+      } else if (err.name === 'SecurityError') {
+        setError('Biometrics require a secure connection (HTTPS).')
+      } else if (err.name === 'InvalidStateError') {
+        setError('Biometric credential not found on this device. Please sign in with your password.')
+      } else {
+        setError('Biometric authentication failed. Please use your password.')
+      }
+      setTimeout(() => setFaceIdState('idle'), 4000)
+    }
   }
 
   const handleForgotSubmit = (e) => {

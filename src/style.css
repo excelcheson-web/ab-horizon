@@ -3931,6 +3931,80 @@ a { color: inherit; text-decoration: none; }
   line-height: 1;
 }
 
+/* ── Biometric setup prompt ─────────────────────────────────── */
+.biometric-prompt-overlay {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(5,14,28,0.75);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 0 env(safe-area-inset-bottom, 0);
+  animation: bio-fade-in 0.2s ease;
+}
+@keyframes bio-fade-in { from { opacity:0 } to { opacity:1 } }
+.biometric-prompt-card {
+  width: 100%; max-width: 480px;
+  background: linear-gradient(160deg, #0d1e38, #0a1a30);
+  border: 1px solid rgba(26,86,219,0.25);
+  border-radius: 24px 24px 0 0;
+  padding: 28px 24px 36px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  text-align: center;
+  animation: bio-slide-up 0.3s var(--ease-out);
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.50);
+}
+@keyframes bio-slide-up { from { transform:translateY(100%) } to { transform:translateY(0) } }
+.biometric-prompt-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(26,86,219,0.15);
+  border: 2px solid rgba(26,86,219,0.30);
+  display: flex; align-items: center; justify-content: center;
+  color: #60a5fa; margin-bottom: 4px;
+}
+.biometric-prompt-title {
+  font-size: 1.125rem; font-weight: 700; color: #fff; margin: 0;
+}
+.biometric-prompt-desc {
+  font-size: 0.875rem; color: rgba(255,255,255,0.55);
+  line-height: 1.65; margin: 0; max-width: 300px;
+}
+.biometric-prompt-btn {
+  width: 100%; padding: 14px; border-radius: 12px;
+  font-size: 0.9375rem; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s; border: none;
+  margin-top: 4px;
+}
+.biometric-prompt-btn--primary {
+  background: linear-gradient(135deg, #1a56db, #1040a0);
+  color: #fff; box-shadow: 0 4px 20px rgba(26,86,219,0.35);
+}
+.biometric-prompt-btn--primary:hover { opacity: 0.88; }
+.biometric-prompt-btn--ghost {
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.55);
+}
+
+/* ── Biometric toast ─────────────────────────────────────────── */
+.biometric-toast {
+  position: fixed; bottom: 90px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 9000; display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px; border-radius: 12px;
+  font-size: 0.875rem; font-weight: 600; color: #fff;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  max-width: calc(480px - 32px); width: calc(100% - 32px);
+  animation: toast-slide 0.3s var(--ease-out);
+}
+.biometric-toast--success { background: linear-gradient(135deg, #1a56db, #1040a0); }
+.biometric-toast--error   { background: linear-gradient(135deg, #dc2626, #991b1b); }
+.biometric-toast--info    { background: linear-gradient(135deg, #0a2540, #0f2a5a); border: 1px solid rgba(26,86,219,0.30); }
+.biometric-toast-icon {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 0.8125rem;
+}
+
 /* ── Welcome Greeting Banner ────────────────────────────────── */
 .db-greeting-banner {
   text-align: center;
@@ -6352,6 +6426,27 @@ button:active {
 .sl-pin-filled { border-color: rgba(76,255,136,.35); }
 .sl-error { color: #ff5252; font-size: .82rem; font-weight: 600; margin-bottom: 8px; }
 .sl-hint { font-size: .72rem; color: rgba(255,255,255,.3); margin-top: 8px; }
+
+/* ── Biometric unlock button on lock screen ─────────────── */
+.sl-biometric-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 20px; padding: 13px 24px;
+  width: 100%; border-radius: 12px;
+  background: rgba(26,86,219,0.15);
+  border: 1.5px solid rgba(26,86,219,0.35);
+  color: #93c5fd; font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; transition: background 0.2s, border-color 0.2s;
+}
+.sl-biometric-btn:hover:not(:disabled) { background: rgba(26,86,219,0.25); border-color: rgba(26,86,219,0.55); }
+.sl-biometric-btn--scanning {
+  border-color: rgba(26,86,219,0.6);
+  animation: sl-bio-pulse 1.4s ease-in-out infinite;
+}
+.sl-biometric-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+@keyframes sl-bio-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(26,86,219,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(26,86,219,0); }
+}
 @keyframes sl-shake-anim {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-8px); }
