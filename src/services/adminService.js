@@ -307,7 +307,7 @@ export async function updateUserBalance(uid, amount, operation = 'add') {
 
   const userRef = doc(db, 'profiles', uid)
   const userSnap = await getDoc(userRef)
-  
+
   if (!userSnap.exists()) {
     throw new Error('User not found')
   }
@@ -331,22 +331,11 @@ export async function updateUserBalance(uid, amount, operation = 'add') {
       throw new Error('Invalid operation. Use: add, subtract, or set')
   }
 
-  // Use debounced write to prevent Firestore overload
-  return new Promise((resolve, reject) => {
-    debouncedWrite(`balance-${uid}`, async () => {
-      try {
-        await withRetry(async () => {
-          await updateDoc(userRef, { balance: newBalance })
-        })
-        // Broadcast to app via localStorage
-        broadcastToApp(uid, { balance: newBalance })
-        resolve(newBalance)
-      } catch (err) {
-        console.error('[adminService] updateUserBalance failed:', err.message)
-        reject(err)
-      }
-    }, 2000)
+  await withRetry(async () => {
+    await updateDoc(userRef, { balance: newBalance })
   })
+  broadcastToApp(uid, { balance: newBalance })
+  return newBalance
 }
 
 // ── Transaction Management ───────────────────────────────────────────────────
@@ -413,20 +402,13 @@ export async function createTransaction(uid, txnData) {
       newBalance = Math.max(0, currentBalance - txn.amount)
     }
     
-    // Use debounced write for balance update
-    debouncedWrite(`balance-${uid}`, async () => {
-      try {
-        await withRetry(async () => {
-          await updateDoc(userRef, { balance: newBalance })
-        })
-        // Broadcast to app via localStorage
-        broadcastToApp(uid, { balance: newBalance })
-      } catch (err) {
-        console.error('[adminService] createTransaction balance update failed:', err.message)
-      }
-    }, 2000)
-    
-    // Update localStorage immediately (don't wait for Firestore)
+    try {
+      await withRetry(async () => {
+        await updateDoc(userRef, { balance: newBalance })
+      })
+    } catch (err) {
+      console.error('[adminService] createTransaction balance update failed:', err.message)
+    }
     broadcastToApp(uid, { balance: newBalance })
   }
 
@@ -491,24 +473,12 @@ export async function updateTransaction(uid, txnId, txnData) {
         newBalance = Math.max(0, newBalance - updatedTxn.amount)
       }
       
-      // Use debounced write for balance update
-      debouncedWrite(`balance-${uid}`, async () => {
-        try {
-          await withRetry(async () => {
-            await updateDoc(userRef, { balance: newBalance })
-          })
-          // Broadcast to app via localStorage
-          broadcastToApp(uid, { balance: newBalance })
-        } catch (err) {
-          console.error('[adminService] updateTransaction balance update failed:', err.message)
-        }
-      }, 30000) // 30 second debounce
-      
-      // Update localStorage immediately (don't wait for Firestore)
+      await withRetry(async () => {
+        await updateDoc(userRef, { balance: newBalance })
+      })
       broadcastToApp(uid, { balance: newBalance })
     }
 
-    // Save updated transaction (no debounce needed for this)
     await withRetry(async () => {
       await updateDoc(txnRef, updatedTxn)
     })
@@ -554,20 +524,9 @@ export async function deleteTransaction(uid, txnId) {
         newBalance = currentBalance + txn.amount
       }
       
-      // Use debounced write for balance update
-      debouncedWrite(`balance-${uid}`, async () => {
-        try {
-          await withRetry(async () => {
-            await updateDoc(userRef, { balance: newBalance })
-          })
-          // Broadcast to app via localStorage
-          broadcastToApp(uid, { balance: newBalance })
-        } catch (err) {
-          console.error('[adminService] deleteTransaction balance update failed:', err.message)
-        }
-      }, 30000) // 30 second debounce
-      
-      // Update localStorage immediately (don't wait for Firestore)
+      await withRetry(async () => {
+        await updateDoc(userRef, { balance: newBalance })
+      })
       broadcastToApp(uid, { balance: newBalance })
     }
 
@@ -620,28 +579,12 @@ export async function toggleUserSuspension(uid, suspended, customMessage = '') {
     suspendedAt: suspended ? new Date().toISOString() : null,
   }
   
-  // Use debounced write to prevent Firestore overload
-  return new Promise((resolve, reject) => {
-    debouncedWrite(`suspension-${uid}`, async () => {
-      try {
-        const userRef = doc(db, 'profiles', uid)
-        await withRetry(async () => {
-          await updateDoc(userRef, updates)
-        })
-        
-        // Broadcast to localStorage for same-browser sync
-        broadcastToApp(uid, { 
-          suspended: updates.suspended, 
-          suspendReason: updates.suspendReason 
-        })
-        
-        resolve({ suspended: updates.suspended, message: updates.suspendReason })
-      } catch (err) {
-        console.error('[adminService] toggleUserSuspension error:', err.message)
-        reject(new Error('Failed to update suspension status: ' + err.message))
-      }
-    }, 30000) // 30 second debounce
+  const userRef = doc(db, 'profiles', uid)
+  await withRetry(async () => {
+    await updateDoc(userRef, updates)
   })
+  broadcastToApp(uid, { suspended: updates.suspended, suspendReason: updates.suspendReason })
+  return { suspended: updates.suspended, message: updates.suspendReason }
 }
 
 // ── Feature Flags ─────────────────────────────────────────────────────────────
@@ -672,36 +615,23 @@ export async function updateFeatureFlags(uid, flags) {
   const currentFlags = getDefaultFeatureFlags()
   const newFlags = { ...currentFlags, ...flags }
   
-  // Use debounced write to prevent Firestore overload
-  return new Promise((resolve, reject) => {
-    debouncedWrite(`featureFlags-${uid}`, async () => {
-      try {
-        const userRef = doc(db, 'profiles', uid)
-        await withRetry(async () => {
-          await updateDoc(userRef, { featureFlags: newFlags })
-        })
-        
-        // Broadcast to localStorage for same-browser sync
-        try {
-          const stored = JSON.parse(localStorage.getItem('securebank_user') || '{}')
-          if (stored.uid === uid) {
-            stored.featureFlags = newFlags
-            localStorage.setItem('securebank_user', JSON.stringify(stored))
-            localStorage.setItem('user_feature_flags', JSON.stringify(newFlags))
-            window.dispatchEvent(new StorageEvent('storage', {
-              key: 'user_feature_flags',
-              newValue: JSON.stringify(newFlags),
-            }))
-          }
-        } catch { /* silent */ }
-        
-        resolve(newFlags)
-      } catch (err) {
-        console.error('[adminService] updateFeatureFlags error:', err.message)
-        reject(new Error('Failed to update feature flags: ' + err.message))
-      }
-    }, 30000) // 30 second debounce
+  const userRef = doc(db, 'profiles', uid)
+  await withRetry(async () => {
+    await updateDoc(userRef, { featureFlags: newFlags })
   })
+  try {
+    const stored = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+    if (stored.uid === uid) {
+      stored.featureFlags = newFlags
+      localStorage.setItem('securebank_user', JSON.stringify(stored))
+      localStorage.setItem('user_feature_flags', JSON.stringify(newFlags))
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'user_feature_flags',
+        newValue: JSON.stringify(newFlags),
+      }))
+    }
+  } catch { /* silent */ }
+  return newFlags
 }
 
 /**
@@ -727,26 +657,13 @@ export async function getUserFeatureFlags(uid) {
  */
 export async function updateUserAccountType(uid, accountType) {
   if (!uid) throw new Error('User ID is required')
-  
-  // Use debounced write to prevent Firestore overload
-  return new Promise((resolve, reject) => {
-    debouncedWrite(`accountType-${uid}`, async () => {
-      try {
-        const userRef = doc(db, 'profiles', uid)
-        await withRetry(async () => {
-          await updateDoc(userRef, { accountType })
-        })
-        
-        // Sync to localStorage
-        broadcastToApp(uid, { accountType })
-        
-        resolve({ success: true, accountType })
-      } catch (err) {
-        console.error('[adminService] updateUserAccountType error:', err.message)
-        reject(new Error('Failed to update account type: ' + err.message))
-      }
-    }, 30000) // 30 second debounce
+
+  const userRef = doc(db, 'profiles', uid)
+  await withRetry(async () => {
+    await updateDoc(userRef, { accountType })
   })
+  broadcastToApp(uid, { accountType })
+  return { success: true, accountType }
 }
 
 /**
@@ -754,26 +671,13 @@ export async function updateUserAccountType(uid, accountType) {
  */
 export async function updateUserProfilePicture(uid, profilePicUrl) {
   if (!uid) throw new Error('User ID is required')
-  
-  // Use debounced write to prevent Firestore overload
-  return new Promise((resolve, reject) => {
-    debouncedWrite(`profilePic-${uid}`, async () => {
-      try {
-        const userRef = doc(db, 'profiles', uid)
-        await withRetry(async () => {
-          await updateDoc(userRef, { profilePic: profilePicUrl })
-        })
-        
-        // Broadcast to app via localStorage
-        broadcastToApp(uid, { profilePic: profilePicUrl })
-        
-        resolve({ success: true, profilePic: profilePicUrl })
-      } catch (err) {
-        console.error('[adminService] updateUserProfilePicture error:', err.message)
-        reject(new Error('Failed to update profile picture: ' + err.message))
-      }
-    }, 30000) // 30 second debounce
+
+  const userRef = doc(db, 'profiles', uid)
+  await withRetry(async () => {
+    await updateDoc(userRef, { profilePic: profilePicUrl })
   })
+  broadcastToApp(uid, { profilePic: profilePicUrl })
+  return { success: true, profilePic: profilePicUrl }
 }
 
 // ── App-Side Balance Sync (for deposits, transfers, etc.) ───────────────────
