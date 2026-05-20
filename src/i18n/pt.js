@@ -8,7 +8,7 @@ export default {
   moveMoney:'Movimentar dinheiro',quickPay:'Pagamento rápido',instantTransfer:'Transferência instantânea',wireTransfer:'Transferência bancária',international:'Internacional',scheduled:'Agendado',setAndForget:'Agende e esqueça',globalExchange:'Câmbio global',fxConverter:'Conversor',billPayment:'Pagamento de contas',payYourBills:'Pague suas contas',invest:'Investir',stocksAndEtfs:'Ações e ETFs',
   weeklySpending:'Gastos semanais',totalSpentThisWeek:'Total esta semana',recentActivity:'Atividade recente',noTransactionsYet:'Sem transações.',viewAllTransactions:'Ver tudo',
   home:'Início',cards:'Cartões',services:'Serviços',alerts:'Alertas',support:'Suporte',
-  goodMorning:'Bom dia',goodAfternoon:'Boa tarde',goodEvening:'Boa noite',welcomeToTD:'Bem-vindo ao TD Bank',
+  goodMorning:'Bom dia',goodAfternoon:'Boa tarde',goodEvening:'Boa noite',welcomeToTD:'Bem-vindo à sua conta',
   profileSettings:'Configurações',privacy:'Privacidade',securityMenu:'Segurança',lightMode:'Modo claro',darkMode:'Modo escuro',logout:'Sair',
   notifications:'Notificações',creditAlert:'Alerta de crédito',debitAlert:'Alerta de débito',systemAlert:'Alerta do sistema',noNotifications:'Sem notificações',dismiss:'Dispensar',
   transfersSuspended:'Transferências suspensas',accountSuspendedMsg:'Conta suspensa. Contate o suporte.',understood:'Entendido',

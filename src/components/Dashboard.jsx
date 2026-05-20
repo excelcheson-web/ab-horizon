@@ -349,7 +349,7 @@ export default function Dashboard({ profile, onLogout }) {
     switch (type) {
       case 'refer': {
         const refProfile = profile?.email ? encodeURIComponent(profile.email.split('@')[0]) : 'PROFILE'
-        const refLink = `https://tdbank-vault.netlify.app/signup?ref=${refProfile}`
+        const refLink = `${window.location.origin}/signup?ref=${refProfile}`
         navigator.clipboard.writeText(refLink).then(() => {
           setAdToast('Referral Link Copied!')
           setTimeout(() => setAdToast(null), 3000)
@@ -589,7 +589,7 @@ export default function Dashboard({ profile, onLogout }) {
       )}
       {showTransferOtp && (
         <OtpModal
-          email={profile?.email || 'profile@tdbank.com'}
+          email={profile?.email || ''}
           variant="transfer"
           onVerified={() => { setShowTransferOtp(false); setShowReceipt(true) }}
           onCancel={() => setShowTransferOtp(false)}
@@ -800,7 +800,7 @@ export default function Dashboard({ profile, onLogout }) {
                   {t('unableToLoadBalance')}
                 </span>
               ) : (
-                <span style={{ color: '#000000' }}>
+                <span style={{ color: "#ffffff" }}>
                   <AnimatedBalance value={bankBalance ?? 0} />
                 </span>
               )}
@@ -831,7 +831,7 @@ export default function Dashboard({ profile, onLogout }) {
         <div className="db-accounts-row">
           <div className="db-account-card db-account-card--green">
             <span className="db-account-type">{t('currentAccount')}</span>
-            <p className="db-account-bal font-mono" style={{ color: '#000000' }}>
+            <p className="db-account-bal font-mono" style={{ color: "#ffffff" }}>
               {balanceLoading
                 ? <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>Loading…</span>
                 : balanceError
@@ -842,7 +842,7 @@ export default function Dashboard({ profile, onLogout }) {
           </div>
           <div className="db-account-card db-account-card--dark">
             <span className="db-account-type">{t('savingsVault')}</span>
-            <p className="db-account-bal font-mono" style={{ color: '#000000' }}>
+            <p className="db-account-bal font-mono" style={{ color: "#ffffff" }}>
               {balanceLoading
                 ? <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>Loading…</span>
                 : <AnimatedBalance value={savingsVault ?? 0} />}
@@ -888,9 +888,9 @@ export default function Dashboard({ profile, onLogout }) {
               <img className="ad-banner-img" src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&h=400&fit=crop&q=80" alt="" />
               <div className="ad-banner-overlay" />
               <div className="ad-banner-content">
-                <span className="ad-badge ad-badge--green">TD Bank</span>
-                <h3 className="ad-title">Trusted by<br/>Millions</h3>
-                <p className="ad-desc">America&rsquo;s most convenient bank since 1852</p>
+                <span className="ad-badge ad-badge--blue">Secure Banking</span>
+                <h3 className="ad-title">Trusted Digital<br/>Banking</h3>
+                <p className="ad-desc">Bank-grade security protecting your finances 24/7</p>
               </div>
             </div>
             {/* Duplicate for seamless loop */}

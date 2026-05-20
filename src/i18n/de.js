@@ -8,7 +8,7 @@ export default {
   moveMoney:'Geld bewegen',quickPay:'Schnellzahlung',instantTransfer:'Sofortüberweisung',wireTransfer:'Banküberweisung',international:'International',scheduled:'Geplant',setAndForget:'Planen und vergessen',globalExchange:'Globaler Wechsel',fxConverter:'Währungsrechner',billPayment:'Rechnungszahlung',payYourBills:'Rechnungen bezahlen',invest:'Investieren',stocksAndEtfs:'Aktien & ETFs',
   weeklySpending:'Wöchentliche Ausgaben',totalSpentThisWeek:'Gesamt diese Woche',recentActivity:'Letzte Aktivität',noTransactionsYet:'Noch keine Transaktionen.',viewAllTransactions:'Alle anzeigen',
   home:'Startseite',cards:'Karten',services:'Dienste',alerts:'Benachrichtigungen',support:'Support',
-  goodMorning:'Guten Morgen',goodAfternoon:'Guten Tag',goodEvening:'Guten Abend',welcomeToTD:'Willkommen bei TD Bank',
+  goodMorning:'Guten Morgen',goodAfternoon:'Guten Tag',goodEvening:'Guten Abend',welcomeToTD:'Willkommen in Ihrem Konto',
   profileSettings:'Profileinstellungen',privacy:'Datenschutz',securityMenu:'Sicherheit',lightMode:'Heller Modus',darkMode:'Dunkler Modus',logout:'Abmelden',
   notifications:'Benachrichtigungen',creditAlert:'Gutschrift-Alarm',debitAlert:'Belastungs-Alarm',systemAlert:'Systemwarnung',noNotifications:'Keine Benachrichtigungen',dismiss:'Schließen',
   transfersSuspended:'Überweisungen gesperrt',accountSuspendedMsg:'Ihr Konto wurde vorübergehend gesperrt. Kontaktieren Sie den Support.',understood:'Verstanden',

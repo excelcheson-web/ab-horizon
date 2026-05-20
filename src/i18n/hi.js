@@ -8,7 +8,7 @@ export default {
   moveMoney:'पैसे भेजें',quickPay:'त्वरित भुगतान',instantTransfer:'तत्काल ट्रांसफर',wireTransfer:'वायर ट्रांसफर',international:'अंतर्राष्ट्रीय',scheduled:'निर्धारित',setAndForget:'सेट करें और भूलें',globalExchange:'वैश्विक विनिमय',fxConverter:'मुद्रा परिवर्तक',billPayment:'बिल भुगतान',payYourBills:'अपने बिल भुगतान करें',invest:'निवेश',stocksAndEtfs:'स्टॉक और ETF',
   weeklySpending:'साप्ताहिक खर्च',totalSpentThisWeek:'इस सप्ताह कुल खर्च',recentActivity:'हाल की गतिविधि',noTransactionsYet:'अभी कोई लेनदेन नहीं।',viewAllTransactions:'सभी देखें',
   home:'होम',cards:'कार्ड',services:'सेवाएं',alerts:'अलर्ट',support:'सहायता',
-  goodMorning:'सुप्रभात',goodAfternoon:'नमस्कार',goodEvening:'शुभ संध्या',welcomeToTD:'TD Bank में आपका स्वागत है',
+  goodMorning:'सुप्रभात',goodAfternoon:'नमस्कार',goodEvening:'शुभ संध्या',welcomeToTD:'Welcome to your dashboard',
   profileSettings:'प्रोफ़ाइल सेटिंग्स',privacy:'गोपनीयता',securityMenu:'सुरक्षा',lightMode:'लाइट मोड',darkMode:'डार्क मोड',logout:'लॉग आउट',
   notifications:'सूचनाएं',creditAlert:'क्रेडिट अलर्ट',debitAlert:'डेबिट अलर्ट',systemAlert:'सिस्टम अलर्ट',noNotifications:'कोई सूचना नहीं',dismiss:'खारिज करें',
   transfersSuspended:'ट्रांसफर निलंबित',accountSuspendedMsg:'आपका खाता अस्थायी रूप से निलंबित है। सहायता से संपर्क करें।',understood:'समझ गया',

@@ -105,7 +105,7 @@ export default function TransactionHistory({ onClose }) {
   const handleRequestStatement = () => {
     setStmtSending(true)
     const user = getUser()
-    const email = user.email || 'customer@tdbank.com'
+    const email = user.email || ''
     // Simulate sending
     setTimeout(() => {
       // Log to email notifications
@@ -114,7 +114,7 @@ export default function TransactionHistory({ onClose }) {
       log.unshift({
         id: Date.now(),
         to: email,
-        subject: `TD Bank – Account Statement (${periodLabel})`,
+        subject: `[BANK NAME] – Account Statement (${periodLabel})`,
         body: `Your account statement for ${periodLabel} containing ${stmtTxns.length} transaction(s) has been generated and sent to ${email}.`,
         sentAt: new Date().toISOString(),
       })
@@ -242,7 +242,7 @@ export default function TransactionHistory({ onClose }) {
   // ── Statements Tab ──
   const renderStatements = () => {
     const user = getUser()
-    const email = user.email || 'customer@tdbank.com'
+    const email = user.email || ''
     const periodLabel = PERIOD_OPTIONS.find((p) => p.days === stmtPeriod)?.label || 'Custom'
 
     return (

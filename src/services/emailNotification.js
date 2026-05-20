@@ -20,7 +20,7 @@ function templateFor(txn) {
   const label = typeLabels[txn.type] || 'Transaction'
   const date = new Date(txn.date).toLocaleString()
   return {
-    subject: `TD Bank – ${label} Confirmation`,
+    subject: `[BANK NAME] – ${label} Confirmation`,
     body: [
       `Dear Customer,`,
       ``,
@@ -34,7 +34,7 @@ function templateFor(txn) {
       ``,
       `If you did not authorize this transaction, please contact us immediately.`,
       ``,
-      `— TD Bank Secure Banking`,
+      `— [BANK NAME] Secure Banking`,
     ].join('\n'),
   }
 }
@@ -45,7 +45,7 @@ function templateFor(txn) {
  */
 export function sendTransferEmail(txn) {
   const user = getUser()
-  const email = user.email || 'customer@tdbank.com'
+  const email = user.email || ''
   const { subject, body } = templateFor(txn)
 
   const record = {

@@ -3,9 +3,9 @@ import TDLogo from './TDLogo'
 export default function VaultLoader({ message = 'Securing your session…' }) {
   return (
     <div className="vault-loader-screen">
-      {/* TD Bank Logo */}
+      {/* Bank placeholder logo */}
       <div className="vault-logo">
-        <TDLogo size={64} className="td-logo" />
+        <TDLogo size={64} />
       </div>
       {/* Spinning vault */}
       <div className="vault">

@@ -8,7 +8,7 @@ export default {
   moveMoney:'Move Money',quickPay:'Quick Pay',instantTransfer:'Instant transfer',wireTransfer:'Wire Transfer',international:'International',scheduled:'Scheduled',setAndForget:'Set & forget',globalExchange:'Global Exchange',fxConverter:'FX converter',billPayment:'Bill Payment',payYourBills:'Pay your bills',invest:'Invest',stocksAndEtfs:'Stocks & ETFs',
   weeklySpending:'Weekly Spending',totalSpentThisWeek:'Total Spent This Week',recentActivity:'Recent Activity',noTransactionsYet:'No transactions yet.',viewAllTransactions:'View All Transactions & Statements',
   home:'Home',cards:'Cards',services:'Services',alerts:'Alerts',support:'Support',
-  goodMorning:'Good morning',goodAfternoon:'Good afternoon',goodEvening:'Good evening',welcomeToTD:'Welcome to TD Bank',
+  goodMorning:'Good morning',goodAfternoon:'Good afternoon',goodEvening:'Good evening',welcomeToTD:'Welcome to your dashboard',
   profileSettings:'Profile Settings',privacy:'Privacy',securityMenu:'Security',lightMode:'Light Mode',darkMode:'Dark Mode',logout:'Logout',
   notifications:'Notifications',creditAlert:'Credit Alert',debitAlert:'Debit Alert',systemAlert:'System Alert',noNotifications:'No notifications yet',dismiss:'Dismiss',
   transfersSuspended:'Transfers Suspended',accountSuspendedMsg:'Your account has been temporarily suspended. Please contact support.',understood:'Understood',

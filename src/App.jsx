@@ -116,7 +116,7 @@ export default function App() {
 
   // Show loader while vault is booting OR while Firebase auth hasn't resolved yet
   if (booting || authLoading) {
-    return <VaultLoader message="Welcome to TD Bank" />
+    return <VaultLoader message="Initializing Secure Banking…" />
   }
 
   if (registering) {

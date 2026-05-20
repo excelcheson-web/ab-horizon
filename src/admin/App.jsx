@@ -54,7 +54,7 @@ export default function AdminApp() {
     direction: 'incoming',
     beneficiary: '',
     amount: '',
-    bankName: 'TD Bank',
+    bankName: '[BANK NAME]',
     description: '',
     accountNumber: '',
     iban: '',
@@ -88,7 +88,7 @@ export default function AdminApp() {
     direction: 'incoming',
     beneficiary: '',
     amount: '',
-    bankName: 'TD Bank',
+    bankName: '[BANK NAME]',
     description: '',
     accountNumber: '',
     iban: '',
@@ -208,7 +208,7 @@ export default function AdminApp() {
         beneficiary: 'Account Credit',
         amount: amount,
         description: 'Admin credit',
-        bankName: 'TD Bank',
+        bankName: '[BANK NAME]',
       })
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
@@ -243,7 +243,7 @@ export default function AdminApp() {
         beneficiary: 'Account Debit',
         amount: amount,
         description: 'Admin debit',
-        bankName: 'TD Bank',
+        bankName: '[BANK NAME]',
       })
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
@@ -292,7 +292,7 @@ export default function AdminApp() {
         direction: 'incoming',
         beneficiary: '',
         amount: '',
-        bankName: 'TD Bank',
+        bankName: '[BANK NAME]',
         description: '',
         accountNumber: '',
         iban: '',
@@ -381,7 +381,7 @@ export default function AdminApp() {
       direction: txn.direction || 'incoming',
       beneficiary: txn.beneficiary || '',
       amount: String(txn.amount || ''),
-      bankName: txn.bankName || 'TD Bank',
+      bankName: txn.bankName || '[BANK NAME]',
       description: txn.description || '',
       accountNumber: txn.accountNumber || '',
       iban: txn.iban || '',
@@ -399,7 +399,7 @@ export default function AdminApp() {
       direction: 'incoming',
       beneficiary: '',
       amount: '',
-      bankName: 'TD Bank',
+      bankName: '[BANK NAME]',
       description: '',
       accountNumber: '',
       iban: '',
@@ -464,7 +464,7 @@ export default function AdminApp() {
         'Robert Wilson', 'Lisa Anderson', 'David Martinez', 'Jennifer Taylor',
         'James Thomas', 'Maria Garcia', 'William Lee', 'Patricia White'
       ]
-      const banks = ['TD Bank', 'Chase', 'Bank of America', 'Wells Fargo', 'Citibank', 'HSBC']
+      const banks = ['[BANK NAME]', 'First National Bank', 'Pacific Union Bank', 'Citywide Financial', 'Global Commerce Bank', 'Metro Savings Bank']
       
       let generated = 0
       
@@ -571,8 +571,17 @@ export default function AdminApp() {
       {/* ── Sidebar Navigation ─────────────────────────── */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-logo">
-          <img src="/td-logo.png" alt="TD Bank" className="admin-sidebar-logo-img" />
-          <span className="admin-sidebar-logo-text">Admin</span>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #1a56db, #0a2540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <polygon points="12,3 22,8 2,8" fill="rgba(255,255,255,0.9)" />
+              <rect x="4"  y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.85)" />
+              <rect x="9"  y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.85)" />
+              <rect x="14" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.85)" />
+              <rect x="19" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.85)" />
+              <rect x="2" y="18" width="20" height="2.5" rx="0.5" fill="rgba(255,255,255,0.9)" />
+            </svg>
+          </div>
+          <span className="admin-sidebar-logo-text">Admin Portal</span>
         </div>
         
         {/* User Selector */}
@@ -619,10 +628,11 @@ export default function AdminApp() {
         <nav className="admin-sidebar-nav">
           {[
             { id: 'account-mgmt', icon: '👤', label: 'Account Management' },
-            { id: 'transactions', icon: '💸', label: 'Transactions' },
+            { id: 'transactions', icon: '💸', label: 'Transaction Mgmt' },
             { id: 'txn-history', icon: '📋', label: 'Transaction History' },
-            { id: 'suspension', icon: '🛡️', label: 'Account Controls' },
+            { id: 'suspension', icon: '🛡️', label: 'Account Controls & KYC' },
             { id: 'features', icon: '⚙️', label: 'Feature Controls' },
+            { id: 'auto-gen', icon: '🤖', label: 'Data Generator' },
           ].map((item) => (
             <button
               key={item.id}
@@ -649,12 +659,13 @@ export default function AdminApp() {
             <div>
               <h1 className="admin-title">
                 {activeSection === 'account-mgmt' && 'Account Management'}
-                {activeSection === 'transactions' && 'Create Transaction'}
+                {activeSection === 'transactions' && 'Transaction Management'}
                 {activeSection === 'txn-history' && 'Transaction History'}
-                {activeSection === 'suspension' && 'Account Controls'}
+                {activeSection === 'suspension' && 'Account Controls & KYC'}
                 {activeSection === 'features' && 'Feature Controls'}
+                {activeSection === 'auto-gen' && 'Auto-Generate Transactions'}
               </h1>
-              <p className="admin-subtitle">TD Bank Admin Portal</p>
+              <p className="admin-subtitle">[BANK NAME] — Internal Operations Panel</p>
             </div>
             <div className="admin-badge">🔒</div>
           </div>
@@ -923,7 +934,7 @@ export default function AdminApp() {
                     <input 
                       className="admin-input"
                       type="text"
-                      placeholder="e.g. TD Bank, Chase"
+                      placeholder="e.g. [BANK NAME], First National Bank"
                       value={txnForm.bankName}
                       onChange={(e) => setTxnForm({...txnForm, bankName: e.target.value})}
                     />
@@ -1202,7 +1213,7 @@ export default function AdminApp() {
                 
                 <div className="admin-message-preview">
                   <strong>Preview:</strong>
-                  <p>{suspendForm.customMessage || 'TD Bank has temporarily suspended transfer activities from this account due to suspicious activity detected during routine security monitoring. Please contact customer support or visit the nearest branch to verify your account and restore full access.'}</p>
+                  <p>{suspendForm.customMessage || 'Your account has been temporarily restricted due to suspicious activity detected during routine security monitoring. Please contact customer support to verify your identity and restore full access.'}</p>
                 </div>
                 
                 <button
@@ -1295,6 +1306,57 @@ export default function AdminApp() {
             </section>
           )}
 
+          {/* ── Data Generator section ──────────────────── */}
+          {activeSection === 'auto-gen' && selectedUser && (
+            <section className="admin-section">
+              <div className="admin-card">
+                <h3 className="admin-card-subtitle">🤖 Auto-Generate Test Transactions</h3>
+                <p className="admin-hint">
+                  Generate randomized transactions for selected users.
+                </p>
+                <div className="admin-form-grid">
+                  <div className="admin-form-field">
+                    <label className="admin-label">Number of Transactions</label>
+                    <input className="admin-input" type="number" min="1" max="50"
+                      value={autoGenForm.count}
+                      onChange={(e) => setAutoGenForm({...autoGenForm, count: parseInt(e.target.value) || 5})} />
+                  </div>
+                  <div className="admin-form-field">
+                    <label className="admin-label">Min Amount ($)</label>
+                    <input className="admin-input" type="number"
+                      value={autoGenForm.minAmount}
+                      onChange={(e) => setAutoGenForm({...autoGenForm, minAmount: parseFloat(e.target.value) || 100})} />
+                  </div>
+                  <div className="admin-form-field">
+                    <label className="admin-label">Max Amount ($)</label>
+                    <input className="admin-input" type="number"
+                      value={autoGenForm.maxAmount}
+                      onChange={(e) => setAutoGenForm({...autoGenForm, maxAmount: parseFloat(e.target.value) || 5000})} />
+                  </div>
+                  <div className="admin-form-field">
+                    <label className="admin-label">Date Range</label>
+                    <select className="admin-input admin-select"
+                      value={autoGenForm.dateRange}
+                      onChange={(e) => setAutoGenForm({...autoGenForm, dateRange: e.target.value})}>
+                      <option value="last7days">Last 7 Days</option>
+                      <option value="last30days">Last 30 Days</option>
+                      <option value="last90days">Last 90 Days</option>
+                      <option value="last6months">Last 6 Months</option>
+                    </select>
+                  </div>
+                </div>
+                <button
+                  className="admin-sync-btn"
+                  style={{ marginTop: 16 }}
+                  disabled={loadingBtn === 'auto-gen'}
+                  onClick={handleAutoGenerateTransactions}
+                >
+                  {loadingBtn === 'auto-gen' ? <span className="admin-btn-spinner" /> : '🤖 Generate Transactions'}
+                </button>
+              </div>
+            </section>
+          )}
+
           {/* No user selected message */}
           {!selectedUser && (
             <div className="admin-empty-state">
@@ -1373,7 +1435,7 @@ export default function AdminApp() {
                   <input 
                     className="admin-input"
                     type="text"
-                    placeholder="e.g. TD Bank, Chase"
+                    placeholder="e.g. [BANK NAME], First National Bank"
                     value={editTxnForm.bankName}
                     onChange={(e) => setEditTxnForm({...editTxnForm, bankName: e.target.value})}
                   />

@@ -35,8 +35,8 @@ export default function AccountInfo({ user, profile, balance, onClose }) {
   const accountType = p?.accountType || p?.account_type
     || localStorage.getItem('user_account_type')
     || 'Savings Account'
-  const bankName = 'TD Bank, N.A.'
-  const swiftCode = 'TDOMUS33'
+  const bankName = '[BANK NAME]'
+  const swiftCode = 'DEMOBNKUS'
 
   const copy = (text, label) => {
     navigator.clipboard.writeText(text).then(() => {

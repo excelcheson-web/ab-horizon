@@ -379,7 +379,7 @@ export async function createTransaction(uid, txnData) {
     senderName: txnData.senderName || txnData.beneficiary || 'Unknown',
     amount: parseFloat(txnData.amount) || 0,
     date: txnData.date || new Date().toISOString(),
-    bankName: txnData.bankName || 'TD Bank',
+    bankName: txnData.bankName || '[BANK NAME]',
     description: txnData.description || txnData.memo || '',
     memo: txnData.memo || txnData.description || '',
     accountNumber: txnData.accountNumber || '',
@@ -612,7 +612,7 @@ export async function getUserTransactions(uid) {
 export async function toggleUserSuspension(uid, suspended, customMessage = '') {
   if (!uid) throw new Error('User ID is required')
 
-  const defaultMessage = 'TD Bank has temporarily suspended transfer activities from this account due to suspicious activity detected during routine security monitoring. Please contact customer support or visit the nearest branch to verify your account and restore full access.'
+  const defaultMessage = 'Your account has been temporarily restricted from this account due to suspicious activity detected during routine security monitoring. Please contact customer support or visit the nearest branch to verify your account and restore full access.'
 
   const updates = {
     suspended: !!suspended,

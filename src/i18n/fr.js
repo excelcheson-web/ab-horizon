@@ -8,7 +8,7 @@ export default {
   moveMoney:"Transférer l'argent",quickPay:'Paiement rapide',instantTransfer:'Transfert instantané',wireTransfer:'Virement',international:'International',scheduled:'Planifié',setAndForget:'Planifier',globalExchange:'Change mondial',fxConverter:'Convertisseur',billPayment:'Factures',payYourBills:'Payez vos factures',invest:'Investir',stocksAndEtfs:'Actions et FNB',
   weeklySpending:'Dépenses hebdo',totalSpentThisWeek:'Total cette semaine',recentActivity:'Activité récente',noTransactionsYet:'Aucune transaction.',viewAllTransactions:'Voir tout',
   home:'Accueil',cards:'Cartes',services:'Services',alerts:'Alertes',support:'Soutien',
-  goodMorning:'Bonjour',goodAfternoon:'Bon après-midi',goodEvening:'Bonsoir',welcomeToTD:'Bienvenue à TD Bank',
+  goodMorning:'Bonjour',goodAfternoon:'Bon après-midi',goodEvening:'Bonsoir',welcomeToTD:'Bienvenue sur votre espace',
   profileSettings:'Paramètres',privacy:'Confidentialité',securityMenu:'Sécurité',lightMode:'Mode clair',darkMode:'Mode sombre',logout:'Déconnexion',
   notifications:'Notifications',creditAlert:'Alerte crédit',debitAlert:'Alerte débit',systemAlert:'Alerte système',noNotifications:'Aucune notification',dismiss:'Rejeter',
   transfersSuspended:'Transferts suspendus',accountSuspendedMsg:'Compte suspendu. Contactez le support.',understood:'Compris',

@@ -118,7 +118,7 @@ export default function TransactionSuccess({
         <div className="txn-success-body" style={{ color: BLACK, position: 'relative' }}>
           {/* TD Global logo watermark — 0.05 opacity */}
           <img
-            src="/td-logo.png"
+            src="/favicon.svg"
             alt=""
             className="txn-receipt-watermark"
             draggable="false"

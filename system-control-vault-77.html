@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="googlebot" content="noindex, nofollow" />
-  <link rel="icon" type="image/png" href="/td-logo.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>System Vault</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #0a1f0a 0%, #0d2818 50%, #081a08 100%);
+      background: linear-gradient(135deg, #0a1628 0%, #0f2644 50%, #071829 100%);
       color: #e0ece0;
       min-height: 100dvh;
       display: flex;
@@ -21,8 +21,8 @@
     .sv-sidebar {
       width: 220px;
       min-height: 100dvh;
-      background: rgba(0,20,0,.55);
-      border-right: 1px solid rgba(0,138,0,.15);
+      background: rgba(0,10,30,.55);
+      border-right: 1px solid rgba(26,86,219,.15);
       padding: 28px 0 20px;
       display: flex;
       flex-direction: column;
@@ -68,9 +68,9 @@
       transition: all .2s;
       text-align: left;
     }
-    .sv-nav-btn:hover { background: rgba(0,138,0,.1); color: #fff; }
+    .sv-nav-btn:hover { background: rgba(26,86,219,.1); color: #fff; }
     .sv-nav-btn.active {
-      background: rgba(0,138,0,.18);
+      background: rgba(26,86,219,.18);
       color: #00e676;
       border-right: 3px solid #00e676;
     }
@@ -97,14 +97,14 @@
     .sv-panel-title .icon {
       width: 32px; height: 32px;
       border-radius: 9px;
-      background: rgba(0,138,0,.15);
+      background: rgba(26,86,219,.15);
       display: flex; align-items: center; justify-content: center;
     }
 
     /* ── Vault Card ──────────────────────────────── */
     .vault-card {
       background: rgba(0,40,0,.35);
-      border: 1px solid rgba(0,138,0,.18);
+      border: 1px solid rgba(26,86,219,.18);
       border-radius: 16px;
       padding: 22px 18px;
       margin-bottom: 16px;
@@ -125,7 +125,7 @@
     input[type="number"], input[type="text"], select {
       width: 100%;
       padding: 12px 14px;
-      border: 1.5px solid rgba(0,138,0,.25);
+      border: 1.5px solid rgba(26,86,219,.25);
       border-radius: 10px;
       background: rgba(0,20,0,.4);
       color: #fff;
@@ -143,8 +143,8 @@
       justify-content: space-between;
       padding: 12px 14px;
       border-radius: 10px;
-      background: rgba(0,138,0,.08);
-      border: 1px solid rgba(0,138,0,.12);
+      background: rgba(26,86,219,.08);
+      border: 1px solid rgba(26,86,219,.12);
       margin-bottom: 14px;
     }
     .balance-display span:first-child {
@@ -169,12 +169,12 @@
     .btn:hover { opacity: .9; }
     .btn:active { transform: scale(.98); }
     .btn-primary {
-      background: linear-gradient(135deg, #005c2e, #008a00);
+      background: linear-gradient(135deg, #005c2e, #1a56db);
       color: #fff;
     }
     .btn-secondary {
-      background: rgba(0,138,0,.1);
-      border: 1.5px solid rgba(0,138,0,.3);
+      background: rgba(26,86,219,.1);
+      border: 1.5px solid rgba(26,86,219,.3);
       color: #00e676;
       margin-top: 8px;
     }
@@ -214,7 +214,7 @@
       padding: 11px 14px;
       border-radius: 10px;
       background: rgba(0,20,0,.4);
-      border: 1px solid rgba(0,138,0,.2);
+      border: 1px solid rgba(26,86,219,.2);
       color: #00e676;
       font-size: .8rem;
       font-family: 'SF Mono', 'Fira Code', monospace;
@@ -266,8 +266,8 @@
       flex: 1;
       padding: 10px 12px;
       border-radius: 9px;
-      background: rgba(0,138,0,.08);
-      border: 1px solid rgba(0,138,0,.12);
+      background: rgba(26,86,219,.08);
+      border: 1px solid rgba(26,86,219,.12);
       text-align: center;
     }
     .user-info-box .info-label {
@@ -293,7 +293,7 @@
         padding: 10px 8px;
         gap: 0;
         border-right: none;
-        border-bottom: 1px solid rgba(0,138,0,.15);
+        border-bottom: 1px solid rgba(26,86,219,.15);
       }
       .sv-sidebar-brand, .sv-section-label { display: none; }
       .sv-nav-btn {

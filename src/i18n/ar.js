@@ -8,7 +8,7 @@ export default {
   moveMoney:'تحويل الأموال',quickPay:'دفع سريع',instantTransfer:'تحويل فوري',wireTransfer:'حوالة بنكية',international:'دولي',scheduled:'مجدول',setAndForget:'جدول وانسَ',globalExchange:'صرف عالمي',fxConverter:'محول عملات',billPayment:'دفع الفواتير',payYourBills:'ادفع فواتيرك',invest:'استثمار',stocksAndEtfs:'أسهم وصناديق',
   weeklySpending:'الإنفاق الأسبوعي',totalSpentThisWeek:'إجمالي هذا الأسبوع',recentActivity:'النشاط الأخير',noTransactionsYet:'لا توجد معاملات.',viewAllTransactions:'عرض الكل',
   home:'الرئيسية',cards:'البطاقات',services:'الخدمات',alerts:'التنبيهات',support:'الدعم',
-  goodMorning:'صباح الخير',goodAfternoon:'مساء الخير',goodEvening:'مساء الخير',welcomeToTD:'مرحباً بك في TD Bank',
+  goodMorning:'صباح الخير',goodAfternoon:'مساء الخير',goodEvening:'مساء الخير',welcomeToTD:'Welcome to your dashboard',
   profileSettings:'الإعدادات',privacy:'الخصوصية',securityMenu:'الأمان',lightMode:'الوضع الفاتح',darkMode:'الوضع الداكن',logout:'تسجيل الخروج',
   notifications:'الإشعارات',creditAlert:'تنبيه إيداع',debitAlert:'تنبيه سحب',systemAlert:'تنبيه النظام',noNotifications:'لا توجد إشعارات',dismiss:'إغلاق',
   transfersSuspended:'التحويلات معلقة',accountSuspendedMsg:'حسابك معلق مؤقتاً. تواصل مع الدعم.',understood:'مفهوم',

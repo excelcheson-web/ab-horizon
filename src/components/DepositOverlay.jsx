@@ -21,7 +21,7 @@ const CloseIcon = () => (
 const METHODS = [
   { id: 'check', icon: '🏦', label: 'Check Deposit', desc: 'Snap a photo of your check' },
   { id: 'ach', icon: '🔗', label: 'ACH / Direct', desc: 'From external bank account' },
-  { id: 'cash', icon: '💵', label: 'Cash Deposit', desc: 'At any TD Bank ATM or branch' },
+  { id: 'cash', icon: '💵', label: 'Cash Deposit', desc: 'At any partnered ATM or branch' },
 ]
 
 export default function DepositOverlay({ balance, onClose, onBalanceUpdate }) {

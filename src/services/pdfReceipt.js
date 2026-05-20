@@ -57,12 +57,12 @@ export function generateTransferPDF(txn) {
   doc.setTextColor(...WHITE)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(24)
-  doc.text('TD Bank', margin, 16)
+  doc.text('[BANK NAME]', margin, 16)
 
   // Sub-line under bank name
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
-  doc.text('TD Bank, N.A.  |  SWIFT: TDOMUS33  |  Member FDIC', margin, 23)
+  doc.text('[BANK NAME]  |  Member FDIC  |  Equal Housing Lender', margin, 23)
 
   // Title — right-aligned
   const title = isIntl ? 'International Wire Confirmation' : 'Local Transfer Confirmation'
@@ -207,12 +207,12 @@ export function generateTransferPDF(txn) {
     { align: 'center' }
   )
   doc.text(
-    'TD Bank, N.A.  |  Member FDIC  |  Equal Housing Lender',
+    '[BANK NAME]  |  Member FDIC  |  Equal Housing Lender',
     pageW / 2, footerY + 11,
     { align: 'center' }
   )
   doc.text(
-    `\u00A9 ${new Date().getFullYear()} TD Bank. All rights reserved.  |  For questions call 1-888-751-9000`,
+    `\u00A9 ${new Date().getFullYear()} [Bank Name Placeholder]. All rights reserved.`,
     pageW / 2, footerY + 16,
     { align: 'center' }
   )

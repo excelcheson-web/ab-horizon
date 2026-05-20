@@ -93,7 +93,7 @@ export default function BankCard({ user, onClose }) {
           </div>
           <div>
             <h2 className="tf-title">Virtual Card</h2>
-            <p className="tf-subtitle">TD Bank Visa Debit</p>
+            <p className="tf-subtitle">Visa Debit Card</p>
           </div>
           <button className="tf-close" onClick={onClose}><CloseIcon /></button>
         </div>
@@ -103,7 +103,7 @@ export default function BankCard({ user, onClose }) {
           <div className="bc-card-shine" />
           <div className="bc-card-texture" />
           {/* Faded background watermark logo */}
-          <img src="/td-logo.png" alt="" className="bc-card-watermark" draggable="false" />
+          <img src="/favicon.svg" alt="" className="bc-card-watermark" draggable="false" />
           {/* Frozen watermark */}
           {frozen && <div className="bc-frozen-watermark">FROZEN</div>}
           {/* Top row: contactless right only */}
