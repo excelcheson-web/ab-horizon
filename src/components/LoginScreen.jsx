@@ -95,7 +95,7 @@ const STATS = [
   { value: '4.8M+', label: 'Accounts Opened',   color: '#60a5fa' },
   { value: '$220B', label: 'Processed Annually', color: '#38bdf8' },
   { value: '99.9%', label: 'Platform Uptime',    color: '#818cf8' },
-  { value: '190+',  label: 'Countries Reached',  color: '#34d399' },
+  { value: '190+',  label: 'Countries Reached',  color: '#14b8a6' },
 ]
 
 const HOW_STEPS = [
@@ -453,7 +453,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
           </div>
           <div className="hp-preview-img-wrap">
             <img
-              src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=700&h=600&fit=crop&q=80"
+              src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=700&h=600&fit=crop&q=80"
               alt="App preview"
               className="hp-preview-img"
               loading="lazy"
