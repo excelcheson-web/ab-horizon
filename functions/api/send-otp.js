@@ -27,8 +27,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const subject = type === 'transfer'
-    ? 'Optima Credit Union – Transfer Verification Code'
-    : 'Optima Credit Union – Email Verification Code'
+    ? 'Optima Credit Union: Your transfer passcode'
+    : 'Optima Credit Union: Your sign-in passcode'
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#ffffff;">
@@ -65,6 +65,8 @@ export async function onRequestPost({ request, env }) {
     </div>
   `
 
+  const text = `Optima Credit Union\n\nYour ${type === 'transfer' ? 'transfer' : 'sign-in'} passcode: ${code}\n\nThis code expires in 10 minutes. Never share it with anyone.\n\nOptima Credit Union will never ask for this code by phone or email.\n\n© ${new Date().getFullYear()} Optima Credit Union`
+
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -72,7 +74,15 @@ export async function onRequestPost({ request, env }) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: FROM_EMAIL, to: [email], subject, html }),
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [email],
+        reply_to: env.REPLY_TO_EMAIL || 'support@optimacreditunion.com',
+        subject,
+        html,
+        text,
+        tags: [{ name: 'category', value: 'transactional' }],
+      }),
     })
 
     if (!res.ok) {

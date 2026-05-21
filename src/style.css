@@ -2504,9 +2504,13 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.04em;
 }
 .db-account-bal {
-  font-size: 1.125rem;
+  font-size: clamp(0.8rem, 3.8vw, 1.125rem);
   font-weight: 700;
   margin: var(--sp-2) 0 var(--sp-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .db-account-num {
   font-size: 0.75rem;

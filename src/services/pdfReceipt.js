@@ -137,13 +137,6 @@ export function generateTransferPDF(txn) {
   doc.setTextColor(...(isCredit ? GREEN : RED))
   doc.text(`${isCredit ? '+' : '-'}$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
 
-  if (txn.balanceAfter !== undefined && txn.balanceAfter !== null) {
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...GRAY)
-    doc.text(`Balance after: $${formatCurrency(txn.balanceAfter)}`, pageW - margin - 5, y + 19, { align: 'right' })
-  }
-
   // ══════════════════════════════════════════════════════════
   // TRANSFER DETAILS TABLE
   // ══════════════════════════════════════════════════════════

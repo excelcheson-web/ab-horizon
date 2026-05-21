@@ -28,8 +28,8 @@ export async function onRequestPost({ request, env }) {
 
   const isCredit    = alertType === 'credit'
   const subject     = isCredit
-    ? `Optima Credit Union – Credit Alert: +$${amount}`
-    : `Optima Credit Union – Debit Alert: -$${amount}`
+    ? `Optima Credit Union: ${amount} received on your account`
+    : `Optima Credit Union: ${amount} sent from your account`
   const accentColor = isCredit ? '#16a34a' : '#dc2626'
   const accentBg    = isCredit ? '#f0fdf4' : '#fef2f2'
   const icon        = isCredit ? '↓' : '↑'
@@ -90,6 +90,8 @@ export async function onRequestPost({ request, env }) {
     </div>
   `
 
+  const text = `Optima Credit Union\n\n${isCredit ? 'CREDIT' : 'DEBIT'}: ${isCredit ? '+' : '-'}$${amount}\nDate: ${timestamp} ET\nReference: ${ref}${newBalance ? `\nNew Balance: $${newBalance}` : ''}\n\nIf you did not authorise this transaction contact us at 1-800-555-0199.\n\n© ${new Date().getFullYear()} Optima Credit Union`
+
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -97,7 +99,15 @@ export async function onRequestPost({ request, env }) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from: FROM_EMAIL, to: [email], subject, html }),
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: [email],
+        reply_to: env.REPLY_TO_EMAIL || 'support@optimacreditunion.com',
+        subject,
+        html,
+        text,
+        tags: [{ name: 'category', value: 'transactional' }],
+      }),
     })
 
     if (!res.ok) {
