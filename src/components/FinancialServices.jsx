@@ -63,17 +63,17 @@ const SERVICES = [
 
 /* ── Pension / Fund managers data ───────────────── */
 const PENSION_MANAGERS = [
-  { name: 'TD Retirement Shield', aum: '42.5B', rating: 4.8, returnRate: '8.2%', minInvest: 500, img: 'https://images.unsplash.com/photo-1560472355-536de3962603?w=400&q=80' },
+  { name: 'Optima Retirement Shield', aum: '42.5B', rating: 4.8, returnRate: '8.2%', minInvest: 500, img: 'https://images.unsplash.com/photo-1560472355-536de3962603?w=400&q=80' },
   { name: 'GreenTree Pensions', aum: '28.1B', rating: 4.6, returnRate: '7.8%', minInvest: 1000, img: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=400&q=80' },
   { name: 'SafeHarbor Retirement', aum: '35.7B', rating: 4.7, returnRate: '8.5%', minInvest: 250, img: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&q=80' },
 ]
 const FUND_MANAGERS = [
-  { name: 'TD Growth Fund', aum: '68.3B', rating: 4.9, returnRate: '12.4%', minInvest: 1000, img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80', strategy: 'Growth Equity' },
+  { name: 'Optima Growth Fund', aum: '68.3B', rating: 4.9, returnRate: '12.4%', minInvest: 1000, img: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&q=80', strategy: 'Growth Equity' },
   { name: 'EverGreen Capital', aum: '31.2B', rating: 4.5, returnRate: '9.7%', minInvest: 500, img: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=400&q=80', strategy: 'Balanced' },
   { name: 'Summit Wealth Advisors', aum: '22.8B', rating: 4.7, returnRate: '11.1%', minInvest: 2000, img: 'https://images.unsplash.com/photo-1591696205602-2f950c417cb9?w=400&q=80', strategy: 'Value Investing' },
 ]
 const MONEY_MARKET = {
-  name: 'TD Money Market Fund',
+  name: 'Optima Money Market Fund',
   apy: '5.25',
   minDeposit: 100,
   totalAum: '124.6B',
@@ -144,7 +144,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         id: loan.id,
         ref: loan.id,
         type: 'loan_disbursement',
-        beneficiary: 'TD Personal Loan',
+        beneficiary: 'Optima Personal Loan',
         amount: amt,
         balanceAfter: newBal,
         date: loan.date,

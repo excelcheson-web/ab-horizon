@@ -16,7 +16,7 @@
 
 1. Go to [Google reCAPTCHA Admin Console](https://www.google.com/recaptcha/admin)
 2. Create a new site or edit existing:
-   - Label: `TD Pay App`
+   - Label: `Optima Credit Union`
    - reCAPTCHA type: **reCAPTCHA v3**
    - Domains: Add both:
      - `login-tdpay.net`

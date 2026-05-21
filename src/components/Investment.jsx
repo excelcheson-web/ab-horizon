@@ -321,7 +321,7 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
             </svg>
           </div>
           <div>
-            <h2 className="tf-title">TD Investments</h2>
+            <h2 className="tf-title">Optima Investments</h2>
             <p className="tf-subtitle">Buy stocks & ETFs</p>
           </div>
           <button className="tf-close" onClick={onClose}><CloseIcon /></button>

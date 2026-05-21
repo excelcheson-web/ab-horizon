@@ -63,8 +63,8 @@ export default function TransactionSuccess({
   if (!visible && !animClass) return null
 
   const {
-    fromName = 'TD CONVENIENCE CHECKING',
-    toName = 'TD Cash',
+    fromName = 'OPTIMA CHECKING',
+    toName = 'Optima Cash',
     amount = '$700.00',
     type = 'Immediate',
     date = 'Jun 2, 2023',
@@ -116,7 +116,7 @@ export default function TransactionSuccess({
 
         {/* ── Receipt body — all text forced solid black ── */}
         <div className="txn-success-body" style={{ color: BLACK, position: 'relative' }}>
-          {/* TD Global logo watermark — 0.05 opacity */}
+          {/* Optima logo watermark — 0.05 opacity */}
           <img
             src="/favicon.svg"
             alt=""

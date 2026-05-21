@@ -100,7 +100,7 @@ export default function AiSupport({ onClose }) {
         {/* Header */}
         <div className="ai-chat-header">
           <div className="ai-chat-header-left">
-            <TDLogo size={40} className="td-logo-sm" style={{ borderRadius: '50%' }} />
+            <TDLogo size={40} className="ocu-logo-sm" style={{ borderRadius: '50%' }} />
             <div>
               <h3 className="ai-chat-title">Optima Credit Union Assistant</h3>
               <span className="ai-chat-status">Online</span>

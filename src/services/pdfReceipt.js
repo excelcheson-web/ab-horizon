@@ -7,7 +7,7 @@ const GRAY = [100, 100, 100]       // medium gray for labels
 const LIGHT_GRAY = [220, 220, 220] // dividers
 const WHITE = [255, 255, 255]
 
-// TD logo as base64 PNG for PDF watermark
+// Logo imported via Vite asset pipeline
 // Logo imported via Vite — no base64 embedding needed
 const TD_LOGO_B64 = null // replaced by OPTIMA_LOGO_URL below
 
