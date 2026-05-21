@@ -174,7 +174,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
     setOtpStep(false)
     setIsLoading(true)
     setLoadingMsg('Processing transfer…')
-    setTimeout(() => setLoadingMsg('Confirming with bank server…'), 2200)
+    setTimeout(() => setLoadingMsg('Confirming with bank server…'), 800)
 
     setTimeout(() => {
       const txn = pendingTxn
@@ -192,7 +192,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
 
       setIsLoading(false)
       setReceipt(txn)
-    }, 5000)
+    }, 1800)
   }
 
   // ── Loading view ──

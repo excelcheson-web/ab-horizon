@@ -402,7 +402,7 @@ export default function Dashboard({ profile, onLogout }) {
     loadingTimerRef.current = setTimeout(() => {
       setOverlayLoading(false)
       action()
-    }, 2000)
+    }, 350)
   }, [overlayLoading])
 
   // Auto-dismiss greeting after 4 seconds

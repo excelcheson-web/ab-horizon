@@ -125,16 +125,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
 
         {/* Backup code — always shown so user can verify if email goes to spam */}
         {fallbackCode && !sending && (
-          <div className="otp-code-hint" style={{
-            background: 'rgba(0,200,100,0.12)',
-            border: '1px solid rgba(0,200,100,0.35)',
-            borderRadius: '8px',
-            padding: '8px 14px',
-            margin: '8px 0',
-            fontSize: '0.85rem',
-            textAlign: 'center',
-            color: '#00c864',
-          }}>
+          <div className="otp-code-hint">
             📧 Code sent to your email — check inbox &amp; spam folder<br />
             <span style={{ opacity: 0.7, fontSize: '0.78rem' }}>Your code: </span>
             <strong style={{ letterSpacing: '0.15em', fontSize: '1rem' }}>{fallbackCode}</strong>

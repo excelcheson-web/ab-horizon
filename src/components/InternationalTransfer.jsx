@@ -186,7 +186,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
     setOtpStep(false)
     setIsLoading(true)
     setLoadingMsg('Processing international transfer…')
-    setTimeout(() => setLoadingMsg('Routing through SWIFT gateway…'), 2200)
+    setTimeout(() => setLoadingMsg('Routing through SWIFT gateway…'), 800)
 
     setTimeout(() => {
       const txn = pendingTxn
@@ -202,7 +202,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
 
       setIsLoading(false)
       setReceipt(txn)
-    }, 5000)
+    }, 1800)
   }
 
   // ── Loading view ──
