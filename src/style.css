@@ -993,7 +993,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Legal content typography */
 .legal-effective {
-  font-size: 0.8125rem; color: rgba(255,255,255,0.40);
+  font-size: 0.8125rem; color: rgba(255,255,255,0.62);
   margin: 0 0 20px; padding-bottom: 14px;
   border-bottom: 1px solid rgba(255,255,255,0.07);
 }
@@ -1005,7 +1005,7 @@ a { color: inherit; text-decoration: none; }
 }
 .legal-p {
   font-size: 0.9rem; line-height: 1.75;
-  color: rgba(255,255,255,0.70); margin: 0 0 12px;
+  color: rgba(255,255,255,0.82); margin: 0 0 12px;
 }
 .legal-sub-heading {
   font-size: 0.875rem; font-weight: 700; color: rgba(255,255,255,0.85);
@@ -1017,7 +1017,7 @@ a { color: inherit; text-decoration: none; }
 }
 .legal-ul li {
   font-size: 0.875rem; line-height: 1.65;
-  color: rgba(255,255,255,0.68);
+  color: rgba(255,255,255,0.80);
   padding-left: 18px; position: relative;
 }
 .legal-ul li::before {
@@ -1051,7 +1051,7 @@ a { color: inherit; text-decoration: none; }
 }
 .contact-modal-icon { font-size: 2rem; line-height: 1; flex-shrink: 0; margin-top: 2px; }
 .contact-modal-title { font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
-.contact-modal-sub   { font-size: 0.875rem; color: rgba(255,255,255,0.45); margin: 0; }
+.contact-modal-sub   { font-size: 0.875rem; color: rgba(255,255,255,0.68); margin: 0; }
 
 /* Form */
 .contact-form { display: flex; flex-direction: column; gap: 18px; }
@@ -1062,8 +1062,8 @@ a { color: inherit; text-decoration: none; }
   display: flex; align-items: center; justify-content: space-between;
 }
 .contact-req     { color: #f87171; font-size: 0.875rem; }
-.contact-optional{ color: rgba(255,255,255,0.35); font-weight: 400; font-size: 0.75rem; }
-.contact-char-count { color: rgba(255,255,255,0.30); font-weight: 400; font-size: 0.75rem; }
+.contact-optional{ color: rgba(255,255,255,0.52); font-weight: 400; font-size: 0.75rem; }
+.contact-char-count { color: rgba(255,255,255,0.50); font-weight: 400; font-size: 0.75rem; }
 .contact-input {
   width: 100%; padding: 11px 14px;
   background: rgba(255,255,255,0.06);
@@ -6633,7 +6633,28 @@ button:active {
   color: #0d1b4b;
 }
 .db--light .db-txn-date {
-  color: rgba(11,31,77,0.45);
+  color: rgba(11,31,77,0.50);
+}
+.db--light .db-txn-title {
+  color: #0d1b4b;
+}
+.db--light .db-txn-desc {
+  color: #0d1b4b;
+}
+.db--light .db-txn-amount--debit {
+  color: #0d1b4b;
+}
+.db--light .db-txn-amount--credit {
+  color: #c9a23a;
+}
+.db--light .db-txn-bal {
+  color: rgba(11,31,77,0.52);
+}
+.db--light .db-statements-empty {
+  color: rgba(11,31,77,0.52);
+}
+.db--light .db-txn-item {
+  border-bottom-color: rgba(11,31,77,0.08);
 }
 
 /* Tabs */

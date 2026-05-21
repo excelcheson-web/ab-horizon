@@ -41,7 +41,12 @@ function ContactBase({ title, subtitle, icon, onClose, children }) {
    CONTACT US
    ═══════════════════════════════════════════════════════════ */
 export function ContactUsModal({ onClose }) {
-  const [form, setForm]       = useState({ name:'', email:'', phone:'', subject:'', message:'' })
+  const [form, setForm]       = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+      return { name: u.full_name || u.name || '', email: u.email || '', phone: '', subject: '', message: '' }
+    } catch { return { name:'', email:'', phone:'', subject:'', message:'' } }
+  })
   const [errors, setErrors]   = useState({})
   const [sending, setSending] = useState(false)
   const [sent, setSent]       = useState(false)
@@ -201,7 +206,12 @@ export function ContactUsModal({ onClose }) {
    SUPPORT CENTER
    ═══════════════════════════════════════════════════════════ */
 export function SupportCenterModal({ onClose }) {
-  const [form, setForm]       = useState({ name:'', email:'', accountNumber:'', category:'', priority:'medium', description:'', screenshot:'' })
+  const [form, setForm]       = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+      return { name: u.full_name || u.name || '', email: u.email || '', accountNumber: u.accountNumber || u.account_number || '', category:'', priority:'medium', description:'', screenshot:'' }
+    } catch { return { name:'', email:'', accountNumber:'', category:'', priority:'medium', description:'', screenshot:'' } }
+  })
   const [errors, setErrors]   = useState({})
   const [sending, setSending] = useState(false)
   const [sent, setSent]       = useState(false)

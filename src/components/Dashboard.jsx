@@ -969,8 +969,8 @@ export default function Dashboard({ profile, onLogout }) {
         <h2 className="db-section-title">{t('accounts')}</h2>
         <div className="db-accounts-row">
           <div className="db-account-card db-account-card--green">
-            <span className="db-account-type">{t('currentAccount')}</span>
-            <p className="db-account-bal font-mono" style={{ color: "#ffffff" }}>
+            <span className="db-account-type">{localStorage.getItem('user_account_type') || profile?.accountType || t('currentAccount')}</span>
+            <p className="db-account-bal font-mono">
               {balanceLoading
                 ? <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>Loading…</span>
                 : balanceError
@@ -981,7 +981,7 @@ export default function Dashboard({ profile, onLogout }) {
           </div>
           <div className="db-account-card db-account-card--dark">
             <span className="db-account-type">{t('savingsVault')}</span>
-            <p className="db-account-bal font-mono" style={{ color: "#ffffff" }}>
+            <p className="db-account-bal font-mono">
               {balanceLoading
                 ? <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>Loading…</span>
                 : <AnimatedBalance value={savingsVault ?? 0} />}
