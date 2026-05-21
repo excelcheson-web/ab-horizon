@@ -10,6 +10,8 @@ const MID_GRAY  = [160, 160, 168] // secondary
 const DIVIDER   = [225, 225, 230] // dividers
 const WHITE     = [255, 255, 255]
 const PAGE_BG   = [248, 245, 238] // warm cream
+const GREEN     = [22,  163, 74]  // #16a34a — incoming
+const RED       = [220,  38, 38]  // #dc2626 — outgoing
 
 function formatCurrency(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -109,7 +111,7 @@ export function generateTransferPDF(txn) {
 
   doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(isCredit ? GOLD[0] : NAVY[0], isCredit ? GOLD[1] : NAVY[1], isCredit ? GOLD[2] : NAVY[2])
+  doc.setTextColor(...(isCredit ? GREEN : RED))
   const statusText = `✓  ${isCredit ? 'RECEIVED' : 'SENT'} · COMPLETED`
   doc.text(statusText, pageW - margin - 5, y + 11, { align: 'right' })
 
@@ -121,8 +123,8 @@ export function generateTransferPDF(txn) {
   doc.setFillColor(...WHITE)
   doc.roundedRect(margin, y, cW, 24, 3, 3, 'F')
 
-  // Left gold bar
-  doc.setFillColor(...GOLD)
+  // Left accent bar — green for incoming, red for outgoing
+  doc.setFillColor(...(isCredit ? GREEN : RED))
   doc.roundedRect(margin, y, 4, 24, 2, 2, 'F')
 
   doc.setFontSize(8)
@@ -132,8 +134,8 @@ export function generateTransferPDF(txn) {
 
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...NAVY)
-  doc.text(`$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
+  doc.setTextColor(...(isCredit ? GREEN : RED))
+  doc.text(`${isCredit ? '+' : '-'}$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
 
   if (txn.balanceAfter !== undefined && txn.balanceAfter !== null) {
     doc.setFontSize(8)

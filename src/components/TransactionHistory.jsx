@@ -75,7 +75,7 @@ export default function TransactionHistory({ onClose }) {
         )
       }
       return true
-    }).slice(0, 15) // Show up to 15 transactions
+    }).slice(0, 40)
   }, [allTxns, period, search])
 
   // Group by date

@@ -1151,7 +1151,7 @@ export default function Dashboard({ profile, onLogout }) {
                     <div className="db-txn-amounts">
                       <span 
                         className={`db-txn-amount font-mono ${isCredit ? 'db-txn-amount--credit' : 'db-txn-amount--debit'}`}
-                        style={{ color: isCredit ? '#c9a23a' : '#ef4444' }}
+                        style={{ color: isCredit ? '#22c55e' : '#ef4444' }}
                       >
                         {isCredit ? '+' : '-'}${displayAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </span>
