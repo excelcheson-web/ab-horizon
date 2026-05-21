@@ -368,7 +368,7 @@ export async function createTransaction(uid, txnData) {
     senderName: txnData.senderName || txnData.beneficiary || 'Unknown',
     amount: parseFloat(txnData.amount) || 0,
     date: txnData.date || new Date().toISOString(),
-    bankName: txnData.bankName || '[BANK NAME]',
+    bankName: txnData.bankName || 'Optima Credit Union',
     description: txnData.description || txnData.memo || '',
     memo: txnData.memo || txnData.description || '',
     accountNumber: txnData.accountNumber || '',

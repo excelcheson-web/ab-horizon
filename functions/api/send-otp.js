@@ -3,7 +3,7 @@
 
 export async function onRequestPost({ request, env }) {
   const RESEND_API_KEY = env.RESEND_API_KEY
-  const FROM_EMAIL     = env.FROM_EMAIL || '[BANK NAME] <noreply@[bankdomain].com>'
+  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimacreditunion.com.com>'
 
   if (!RESEND_API_KEY) {
     return json({ error: 'Email service not configured' }, 500)
@@ -27,8 +27,8 @@ export async function onRequestPost({ request, env }) {
   }
 
   const subject = type === 'transfer'
-    ? '[BANK NAME] – Transfer Verification Code'
-    : '[BANK NAME] – Email Verification Code'
+    ? 'Optima Credit Union – Transfer Verification Code'
+    : 'Optima Credit Union – Email Verification Code'
 
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#ffffff;">
@@ -43,7 +43,7 @@ export async function onRequestPost({ request, env }) {
             <rect x="2" y="18" width="20" height="2.5" rx="0.5" fill="rgba(255,255,255,0.95)"/>
           </svg>
         </div>
-        <h1 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;">[BANK NAME]</h1>
+        <h1 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;">Optima Credit Union</h1>
         <p style="font-size:13px;color:#6b7280;margin:4px 0 0;">Secure Banking Platform</p>
       </div>
 
@@ -61,13 +61,13 @@ export async function onRequestPost({ request, env }) {
 
       <div style="margin-top:24px;padding:16px;background:#fef9ec;border-radius:10px;border-left:3px solid #f59e0b;">
         <p style="font-size:12px;color:#92400e;margin:0;">
-          <strong>Security notice:</strong> [BANK NAME] will never ask for this code by phone or email.
+          <strong>Security notice:</strong> Optima Credit Union will never ask for this code by phone or email.
           If you didn't request this, please secure your account immediately.
         </p>
       </div>
 
       <p style="font-size:11px;color:#d1d5db;text-align:center;margin-top:24px;">
-        © ${new Date().getFullYear()} [Bank Name Placeholder]. All rights reserved.
+        © ${new Date().getFullYear()} Optima Credit Union. All rights reserved.
       </p>
     </div>
   `

@@ -3,7 +3,7 @@
 
 export async function onRequestPost({ request, env }) {
   const RESEND_API_KEY = env.RESEND_API_KEY
-  const FROM_EMAIL     = env.FROM_EMAIL || '[BANK NAME] <noreply@[bankdomain].com>'
+  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimacreditunion.com.com>'
 
   if (!RESEND_API_KEY) {
     return json({ error: 'Email service not configured' }, 500)
@@ -28,8 +28,8 @@ export async function onRequestPost({ request, env }) {
 
   const isCredit    = alertType === 'credit'
   const subject     = isCredit
-    ? `[BANK NAME] – Credit Alert: +$${amount}`
-    : `[BANK NAME] – Debit Alert: -$${amount}`
+    ? `Optima Credit Union – Credit Alert: +$${amount}`
+    : `Optima Credit Union – Debit Alert: -$${amount}`
   const accentColor = isCredit ? '#16a34a' : '#dc2626'
   const accentBg    = isCredit ? '#f0fdf4' : '#fef2f2'
   const icon        = isCredit ? '↓' : '↑'
@@ -55,7 +55,7 @@ export async function onRequestPost({ request, env }) {
             <rect x="2" y="18" width="20" height="2.5" rx="0.5" fill="rgba(255,255,255,0.95)"/>
           </svg>
         </div>
-        <h1 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;">[BANK NAME]</h1>
+        <h1 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;">Optima Credit Union</h1>
         <p style="font-size:13px;color:#6b7280;margin:4px 0 0;">Transaction Alert</p>
       </div>
 
@@ -92,7 +92,7 @@ export async function onRequestPost({ request, env }) {
       </div>
 
       <p style="font-size:11px;color:#d1d5db;text-align:center;margin-top:24px;">
-        © ${new Date().getFullYear()} [Bank Name Placeholder]. All rights reserved.
+        © ${new Date().getFullYear()} Optima Credit Union. All rights reserved.
       </p>
     </div>
   `

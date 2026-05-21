@@ -53,7 +53,7 @@ export function PrivacyPolicyModal({ onClose }) {
       <p className="legal-effective">Effective Date: January 1, 2025 &nbsp;|&nbsp; Last Updated: May 2026</p>
 
       <P>
-        [BANK NAME] ("we," "our," or "us") is committed to protecting your personal information. This Privacy Policy
+        Optima Credit Union ("we," "our," or "us") is committed to protecting your personal information. This Privacy Policy
         explains how we collect, use, disclose, and safeguard your information when you use our digital banking platform,
         website, and related services (collectively, the "Services"). Please read this policy carefully. By using our
         Services, you agree to the practices described herein.
@@ -185,7 +185,7 @@ export function PrivacyPolicyModal({ onClose }) {
         <P>For privacy-related questions or to exercise your rights, please contact:</P>
         <P>
           <strong style={{color:'#93c5fd'}}>Privacy Officer</strong><br/>
-          [BANK NAME]<br/>
+          Optima Credit Union<br/>
           Email: privacy@[bankname].com<br/>
           Phone: 1-800-555-0100<br/>
           Response time: Within 30 business days
@@ -204,7 +204,7 @@ export function TermsOfServiceModal({ onClose }) {
       <p className="legal-effective">Effective Date: January 1, 2025 &nbsp;|&nbsp; Last Updated: May 2026</p>
 
       <P>
-        Please read these Terms of Service ("Terms") carefully before using the [BANK NAME] digital banking
+        Please read these Terms of Service ("Terms") carefully before using the Optima Credit Union digital banking
         platform and related services. By creating an account or using our Services, you confirm that you have
         read, understood, and agree to be bound by these Terms and our Privacy Policy.
       </P>
@@ -228,7 +228,7 @@ export function TermsOfServiceModal({ onClose }) {
 
       <Sec title="2. Description of Services">
         <P>
-          [BANK NAME] provides a digital banking platform offering the following financial services,
+          Optima Credit Union provides a digital banking platform offering the following financial services,
           subject to eligibility and verification:
         </P>
         <UL items={[
@@ -285,7 +285,7 @@ export function TermsOfServiceModal({ onClose }) {
 
       <Sec title="5. Transaction Authorization & Liability">
         <P>
-          You authorize [BANK NAME] to execute transactions that you initiate through our platform.
+          You authorize Optima Credit Union to execute transactions that you initiate through our platform.
           All transactions are final once confirmed unless otherwise specified. You are responsible for:
         </P>
         <UL items={[
@@ -298,7 +298,7 @@ export function TermsOfServiceModal({ onClose }) {
 
       <Sec title="6. Limitation of Liability">
         <P>
-          To the maximum extent permitted by applicable law, [BANK NAME] shall not be liable for
+          To the maximum extent permitted by applicable law, Optima Credit Union shall not be liable for
           any indirect, incidental, special, consequential, or punitive damages arising from your
           use of our Services, including but not limited to loss of profits, data, or business
           opportunities. Our total liability for any claim shall not exceed the amount of fees paid
@@ -309,7 +309,7 @@ export function TermsOfServiceModal({ onClose }) {
       <Sec title="7. Intellectual Property">
         <P>
           All content, features, and functionality of our platform — including software, design,
-          text, graphics, logos, and trademarks — are owned exclusively by [BANK NAME] and protected
+          text, graphics, logos, and trademarks — are owned exclusively by Optima Credit Union and protected
           by applicable intellectual property laws. You may not reproduce, distribute, or create
           derivative works without our express written consent.
         </P>
@@ -359,7 +359,7 @@ export function CookiePolicyModal({ onClose }) {
       <p className="legal-effective">Effective Date: January 1, 2025 &nbsp;|&nbsp; Last Updated: May 2026</p>
 
       <P>
-        This Cookie Policy explains how [BANK NAME] uses cookies and similar tracking technologies
+        This Cookie Policy explains how Optima Credit Union uses cookies and similar tracking technologies
         on our digital banking platform. We are committed to being transparent about how we collect
         and use data, and this policy gives you clear information about your choices.
       </P>
@@ -478,7 +478,7 @@ export function ComplianceModal({ onClose }) {
       <p className="legal-effective">Last Updated: May 2026</p>
 
       <P>
-        [BANK NAME] operates with a deep commitment to legal compliance, financial integrity, and
+        Optima Credit Union operates with a deep commitment to legal compliance, financial integrity, and
         the highest standards of responsible banking. This page outlines the regulatory frameworks
         we operate within and our obligations to our customers, regulators, and the broader
         financial system.
@@ -486,7 +486,7 @@ export function ComplianceModal({ onClose }) {
 
       <Sec title="1. Regulatory Overview">
         <P>
-          [BANK NAME] is committed to complying with all applicable federal, state, and international
+          Optima Credit Union is committed to complying with all applicable federal, state, and international
           financial regulations, including but not limited to:
         </P>
         <UL items={[
@@ -521,7 +521,7 @@ export function ComplianceModal({ onClose }) {
 
       <Sec title="3. Anti-Money Laundering (AML) Policy">
         <P>
-          [BANK NAME] maintains a robust AML compliance program designed to detect, prevent, and
+          Optima Credit Union maintains a robust AML compliance program designed to detect, prevent, and
           report suspicious financial activity. Our program includes:
         </P>
         <UL items={[
@@ -591,7 +591,7 @@ export function ComplianceModal({ onClose }) {
 
       <Sec title="8. Accessibility & Non-Discrimination">
         <P>
-          [BANK NAME] is committed to providing equal access to banking services regardless of
+          Optima Credit Union is committed to providing equal access to banking services regardless of
           race, color, religion, national origin, sex, disability, or age, in compliance with
           the Equal Credit Opportunity Act and the Americans with Disabilities Act. Our platform
           is designed to meet WCAG 2.1 AA accessibility standards.

@@ -1,8 +1,6 @@
-/* Generic bank logo placeholder — no real bank assets */
+/* Optima Credit Union — brand mark */
 
 export default function TDLogo({ size = 48, className = '', style }) {
-  const iconSize = Math.round(size * 0.55)
-
   return (
     <div
       style={{
@@ -11,35 +9,57 @@ export default function TDLogo({ size = 48, className = '', style }) {
         justifyContent: 'center',
         width: size,
         height: size,
-        borderRadius: Math.round(size * 0.28),
-        background: 'linear-gradient(135deg, #1a56db 0%, #0a2540 100%)',
-        boxShadow: '0 4px 20px rgba(26,86,219,0.35), 0 1px 0 rgba(255,255,255,0.12) inset',
+        borderRadius: Math.round(size * 0.26),
+        background: '#0d1b4b',
+        boxShadow: '0 4px 20px rgba(201,162,58,0.32), 0 1px 0 rgba(255,255,255,0.08) inset',
+        border: '1px solid rgba(201,162,58,0.22)',
         flexShrink: 0,
         ...style,
       }}
       className={className}
-      aria-label="Bank logo placeholder"
+      aria-label="Optima Credit Union"
     >
-      {/* Bank building icon */}
+      {/*
+        Mark: circle ring (white, 270°) + gold arc (top-right 90°)
+              + gold tail curl + white checkmark inside
+        viewBox adds right-side room for the gold tail extension
+      */}
       <svg
-        width={iconSize}
-        height={iconSize}
-        viewBox="0 0 24 24"
+        width={Math.round(size * 0.70)}
+        height={Math.round(size * 0.66)}
+        viewBox="-1 -1 45 41"
         fill="none"
         aria-hidden="true"
       >
-        {/* Roof / pediment */}
-        <polygon
-          points="12,3 22,8 2,8"
-          fill="rgba(255,255,255,0.95)"
+        {/* White ring — 270° clockwise from 3-o'clock down-around to 12-o'clock */}
+        <path
+          d="M 34 20 A 14 14 0 1 1 20 6"
+          stroke="rgba(255,255,255,0.90)"
+          strokeWidth="4"
+          strokeLinecap="round"
         />
-        {/* Columns */}
-        <rect x="4"  y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)" />
-        <rect x="9"  y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)" />
-        <rect x="14" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)" />
-        <rect x="19" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)" />
-        {/* Base platform */}
-        <rect x="2" y="18" width="20" height="2.5" rx="0.5" fill="rgba(255,255,255,0.95)" />
+        {/* Gold arc — top-right 90° from 12-o'clock to 3-o'clock */}
+        <path
+          d="M 20 6 A 14 14 0 0 1 34 20"
+          stroke="#e5c96e"
+          strokeWidth="4.4"
+          strokeLinecap="round"
+        />
+        {/* Gold tail — curves outward from 3-o'clock toward upper-right */}
+        <path
+          d="M 34 20 C 39 16, 38 8, 30 6"
+          stroke="#e5c96e"
+          strokeWidth="3.8"
+          strokeLinecap="round"
+        />
+        {/* White checkmark inside the ring */}
+        <polyline
+          points="11,22 18,30 31,14"
+          stroke="rgba(255,255,255,0.90)"
+          strokeWidth="3.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </div>
   )

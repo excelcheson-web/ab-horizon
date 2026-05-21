@@ -58,7 +58,7 @@ export async function registerBiometric({ uid, email, name }) {
     publicKey: {
       challenge,
       rp: {
-        name: '[BANK NAME]',
+        name: 'Optima Credit Union',
         id: rpId,
       },
       user: {

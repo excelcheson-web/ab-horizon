@@ -255,7 +255,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
     return (
       <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#071829,#0a2540)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1.5rem' }}>
         <TDLogo size={72}/>
-        <p style={{ color:'#fff', fontWeight:700, fontSize:'1.2rem', margin:0, letterSpacing:'0.04em' }}>[BANK NAME]</p>
+        <p style={{ color:'#fff', fontWeight:700, fontSize:'1.2rem', margin:0, letterSpacing:'0.04em' }}>Optima Credit Union</p>
         <div style={{ width:220, height:3, background:'rgba(255,255,255,0.12)', borderRadius:99, overflow:'hidden' }}>
           <div style={{ height:'100%', background:'linear-gradient(90deg,#1a56db,#38bdf8)', borderRadius:99, animation:'lp-bar 5s linear forwards' }}/>
         </div>
@@ -274,7 +274,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
         <div className="hp-nav-inner">
           <div className="hp-nav-brand">
             <TDLogo size={36}/>
-            <span className="hp-nav-name">[BANK NAME]</span>
+            <span className="hp-nav-name">Optima Credit Union</span>
           </div>
 
           <nav className="hp-nav-links">
@@ -509,7 +509,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
           <div className="hp-footer-top">
             <div className="hp-footer-brand">
               <TDLogo size={40}/>
-              <span className="hp-footer-name">[BANK NAME]</span>
+              <span className="hp-footer-name">Optima Credit Union</span>
             </div>
             <p className="hp-footer-tagline">Secure digital banking for everyone, everywhere.</p>
           </div>
@@ -539,7 +539,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
           </div>
 
           <div className="hp-footer-bottom">
-            <p>© {new Date().getFullYear()} [Bank Name Placeholder]. All rights reserved. Member FDIC. Equal Housing Lender.</p>
+            <p>© {new Date().getFullYear()} Optima Credit Union. All rights reserved. Member FDIC. Equal Housing Lender.</p>
           </div>
         </div>
       </footer>

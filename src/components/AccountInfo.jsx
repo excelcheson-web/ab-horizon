@@ -35,7 +35,7 @@ export default function AccountInfo({ user, profile, balance, onClose }) {
   const accountType = p?.accountType || p?.account_type
     || localStorage.getItem('user_account_type')
     || 'Savings Account'
-  const bankName = '[BANK NAME]'
+  const bankName = 'Optima Credit Union'
   const swiftCode = 'DEMOBNKUS'
 
   const copy = (text, label) => {

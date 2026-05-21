@@ -114,7 +114,7 @@ export default function TransactionHistory({ onClose }) {
       log.unshift({
         id: Date.now(),
         to: email,
-        subject: `[BANK NAME] – Account Statement (${periodLabel})`,
+        subject: `Optima Credit Union – Account Statement (${periodLabel})`,
         body: `Your account statement for ${periodLabel} containing ${stmtTxns.length} transaction(s) has been generated and sent to ${email}.`,
         sentAt: new Date().toISOString(),
       })

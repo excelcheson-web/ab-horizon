@@ -241,7 +241,7 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
               </div>
               <div className="tf-field">
                 <label className="tf-label">Bank Name</label>
-                <input className="tf-input" placeholder="e.g. [BANK NAME]" value={form.bankName} onChange={(e) => update('bankName', e.target.value)} />
+                <input className="tf-input" placeholder="e.g. Optima Credit Union" value={form.bankName} onChange={(e) => update('bankName', e.target.value)} />
               </div>
             </div>
             <div className="tf-field">

@@ -12,9 +12,9 @@ const BOT_RESPONSES = [
   { patterns: ['loan', 'borrow', 'credit'], reply: 'We offer personal loans, home loans, and business credit lines. Visit Wealth > Loans to check your eligibility and apply.' },
   { patterns: ['savings', 'interest', 'vault'], reply: 'Your Savings Vault earns competitive interest. Current rate: 4.25% APY. You can set up automatic deposits from your Current Account.' },
   { patterns: ['support', 'agent', 'human', 'speak to someone', 'call'], reply: 'For urgent issues, call our 24/7 helpline at 1-800-SECURE. For non-urgent matters, I\'m here to help!' },
-  { patterns: ['hello', 'hi', 'hey', 'good morning', 'good afternoon'], reply: 'Hello! Welcome to [BANK NAME] Support. How can I help you today? I can assist with transfers, account info, cards, crypto, and more.' },
+  { patterns: ['hello', 'hi', 'hey', 'good morning', 'good afternoon'], reply: 'Hello! Welcome to Optima Credit Union Support. How can I help you today? I can assist with transfers, account info, cards, crypto, and more.' },
   { patterns: ['thank', 'thanks', 'appreciate'], reply: 'You\'re welcome! Is there anything else I can help you with?' },
-  { patterns: ['fee', 'charge', 'cost'], reply: '[BANK NAME] offers zero-fee domestic transfers. International wires have a flat $15 fee. Crypto trades have a 0.5% spread. No monthly account maintenance fees.' },
+  { patterns: ['fee', 'charge', 'cost'], reply: 'Optima Credit Union offers zero-fee domestic transfers. International wires have a flat $15 fee. Crypto trades have a 0.5% spread. No monthly account maintenance fees.' },
   { patterns: ['limit', 'maximum', 'transaction limit'], reply: 'Daily transfer limits: Quick Pay $5,000, Wire Transfer $50,000, Scheduled $100,000. Contact support to request a temporary increase.' },
 ]
 
@@ -102,7 +102,7 @@ export default function AiSupport({ onClose }) {
           <div className="ai-chat-header-left">
             <TDLogo size={40} className="td-logo-sm" style={{ borderRadius: '50%' }} />
             <div>
-              <h3 className="ai-chat-title">[BANK NAME] Assistant</h3>
+              <h3 className="ai-chat-title">Optima Credit Union Assistant</h3>
               <span className="ai-chat-status">Online</span>
             </div>
           </div>

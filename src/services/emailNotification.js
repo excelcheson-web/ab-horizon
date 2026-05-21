@@ -20,7 +20,7 @@ function templateFor(txn) {
   const label = typeLabels[txn.type] || 'Transaction'
   const date = new Date(txn.date).toLocaleString()
   return {
-    subject: `[BANK NAME] – ${label} Confirmation`,
+    subject: `Optima Credit Union – ${label} Confirmation`,
     body: [
       `Dear Customer,`,
       ``,
@@ -34,7 +34,7 @@ function templateFor(txn) {
       ``,
       `If you did not authorize this transaction, please contact us immediately.`,
       ``,
-      `— [BANK NAME] Secure Banking`,
+      `— Optima Credit Union Secure Banking`,
     ].join('\n'),
   }
 }

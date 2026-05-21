@@ -54,7 +54,7 @@ export default function AdminApp() {
     direction: 'incoming',
     beneficiary: '',
     amount: '',
-    bankName: '[BANK NAME]',
+    bankName: 'Optima Credit Union',
     description: '',
     accountNumber: '',
     iban: '',
@@ -88,7 +88,7 @@ export default function AdminApp() {
     direction: 'incoming',
     beneficiary: '',
     amount: '',
-    bankName: '[BANK NAME]',
+    bankName: 'Optima Credit Union',
     description: '',
     accountNumber: '',
     iban: '',
@@ -208,7 +208,7 @@ export default function AdminApp() {
         beneficiary: 'Account Credit',
         amount: amount,
         description: 'Admin credit',
-        bankName: '[BANK NAME]',
+        bankName: 'Optima Credit Union',
       })
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
@@ -243,7 +243,7 @@ export default function AdminApp() {
         beneficiary: 'Account Debit',
         amount: amount,
         description: 'Admin debit',
-        bankName: '[BANK NAME]',
+        bankName: 'Optima Credit Union',
       })
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
@@ -292,7 +292,7 @@ export default function AdminApp() {
         direction: 'incoming',
         beneficiary: '',
         amount: '',
-        bankName: '[BANK NAME]',
+        bankName: 'Optima Credit Union',
         description: '',
         accountNumber: '',
         iban: '',
@@ -381,7 +381,7 @@ export default function AdminApp() {
       direction: txn.direction || 'incoming',
       beneficiary: txn.beneficiary || '',
       amount: String(txn.amount || ''),
-      bankName: txn.bankName || '[BANK NAME]',
+      bankName: txn.bankName || 'Optima Credit Union',
       description: txn.description || '',
       accountNumber: txn.accountNumber || '',
       iban: txn.iban || '',
@@ -399,7 +399,7 @@ export default function AdminApp() {
       direction: 'incoming',
       beneficiary: '',
       amount: '',
-      bankName: '[BANK NAME]',
+      bankName: 'Optima Credit Union',
       description: '',
       accountNumber: '',
       iban: '',
@@ -464,7 +464,7 @@ export default function AdminApp() {
         'Robert Wilson', 'Lisa Anderson', 'David Martinez', 'Jennifer Taylor',
         'James Thomas', 'Maria Garcia', 'William Lee', 'Patricia White'
       ]
-      const banks = ['[BANK NAME]', 'First National Bank', 'Pacific Union Bank', 'Citywide Financial', 'Global Commerce Bank', 'Metro Savings Bank']
+      const banks = ['Optima Credit Union', 'First National Bank', 'Pacific Union Bank', 'Citywide Financial', 'Global Commerce Bank', 'Metro Savings Bank']
       
       let generated = 0
       
@@ -665,7 +665,7 @@ export default function AdminApp() {
                 {activeSection === 'features' && 'Feature Controls'}
                 {activeSection === 'auto-gen' && 'Auto-Generate Transactions'}
               </h1>
-              <p className="admin-subtitle">[BANK NAME] — Internal Operations Panel</p>
+              <p className="admin-subtitle">Optima Credit Union — Internal Operations Panel</p>
             </div>
             <div className="admin-badge">🔒</div>
           </div>
@@ -934,7 +934,7 @@ export default function AdminApp() {
                     <input 
                       className="admin-input"
                       type="text"
-                      placeholder="e.g. [BANK NAME], First National Bank"
+                      placeholder="e.g. Optima Credit Union, First National Bank"
                       value={txnForm.bankName}
                       onChange={(e) => setTxnForm({...txnForm, bankName: e.target.value})}
                     />
@@ -1435,7 +1435,7 @@ export default function AdminApp() {
                   <input 
                     className="admin-input"
                     type="text"
-                    placeholder="e.g. [BANK NAME], First National Bank"
+                    placeholder="e.g. Optima Credit Union, First National Bank"
                     value={editTxnForm.bankName}
                     onChange={(e) => setEditTxnForm({...editTxnForm, bankName: e.target.value})}
                   />
