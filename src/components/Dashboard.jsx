@@ -1131,7 +1131,7 @@ export default function Dashboard({ profile, onLogout }) {
           <h3 className="db-txn-title">{t('recentActivity')}</h3>
         </div>
         {(() => {
-          const recent = recentTxns.slice(0, 3)
+          const recent = recentTxns.slice(0, 30)
           // Credit types: money coming IN (green +)
           const creditTypes = ['deposit', 'credit', 'payroll', 'refund', 'incoming']
           // Debit types: money going OUT (red -)
