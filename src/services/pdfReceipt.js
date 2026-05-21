@@ -1,15 +1,15 @@
 import { jsPDF } from 'jspdf'
 import optimaLogoUrl from '../assets/optima-logo.png'
 
-const BRAND_GOLD = [201, 162, 58]    // #c9a23a
-const DARK = [33, 33, 33]          // near-black for body text
-const GRAY = [100, 100, 100]       // medium gray for labels
-const LIGHT_GRAY = [220, 220, 220] // dividers
-const WHITE = [255, 255, 255]
-
-// Logo imported via Vite asset pipeline
-// Logo imported via Vite — no base64 embedding needed
-const TD_LOGO_B64 = null // replaced by OPTIMA_LOGO_URL below
+/* ── Brand palette ─────────────────────────────────────────── */
+const NAVY      = [11,  31, 77]   // #0b1f4d
+const GOLD      = [201, 162, 58]  // #c9a23a
+const DARK      = [33,  33, 33]   // body text
+const GRAY      = [110, 110, 120] // labels
+const MID_GRAY  = [160, 160, 168] // secondary
+const DIVIDER   = [225, 225, 230] // dividers
+const WHITE     = [255, 255, 255]
+const PAGE_BG   = [248, 245, 238] // warm cream
 
 function formatCurrency(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -18,237 +18,266 @@ function formatCurrency(n) {
 function formatDate(iso) {
   const d = iso ? new Date(iso) : new Date()
   return d.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    year: 'numeric', month: 'long', day: 'numeric',
   }) + ' at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatDateShort(iso) {
+  const d = iso ? new Date(iso) : new Date()
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 /**
- * Generate a professional PDF receipt for a wire / local transfer.
- * @param {Object} txn - transaction data
- * @param {'international'|'local'} txn.type
- * @param {string} txn.ref
- * @param {string} txn.beneficiary
- * @param {number} txn.amount
- * @param {number} [txn.balanceAfter]
- * @param {string} txn.date - ISO date string
- * @param {string} [txn.iban]
- * @param {string} [txn.swift]
- * @param {string} [txn.bankName]
- * @param {string} [txn.country]
- * @param {string} [txn.accountNumber] - for local transfers
+ * Generate a professional PDF receipt.
+ * @param {Object} txn
  */
 export function generateTransferPDF(txn) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const pageW = doc.internal.pageSize.getWidth()
-  const pageH = doc.internal.pageSize.getHeight()
-  const margin = 20
-  const contentW = pageW - margin * 2
-  const isIntl = txn.type === 'international'
+  const doc      = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageW    = doc.internal.pageSize.getWidth()
+  const pageH    = doc.internal.pageSize.getHeight()
+  const margin   = 18
+  const cW       = pageW - margin * 2
+  const isIntl   = txn.type === 'international'
+  const isCredit = txn.direction === 'incoming' || txn.type === 'credit'
+
+  // ── Page background ────────────────────────────────────────
+  doc.setFillColor(...PAGE_BG)
+  doc.rect(0, 0, pageW, pageH, 'F')
 
   // ══════════════════════════════════════════════════════════
-  // DRAW ALL CONTENT FIRST (at full opacity)
-  // Then draw watermark LAST so GState opacity bug doesn't
-  // affect readable content.
+  // HEADER — navy bar with logo
   // ══════════════════════════════════════════════════════════
+  doc.setFillColor(...NAVY)
+  doc.rect(0, 0, pageW, 44, 'F')
 
-  // ── Green header bar ──────────────────────────────────
-  doc.setFillColor(...BRAND_GOLD)
-  doc.rect(0, 0, pageW, 40, 'F')
+  // Gold accent stripe at bottom of header
+  doc.setFillColor(...GOLD)
+  doc.rect(0, 44, pageW, 2, 'F')
 
-  // Bank name — bold, top-left
+  // Logo — right-aligned in header, white box
+  try {
+    doc.setFillColor(...WHITE)
+    doc.roundedRect(pageW - margin - 48, 6, 48, 32, 3, 3, 'F')
+    doc.addImage(optimaLogoUrl, 'PNG', pageW - margin - 46, 8.5, 44, 27)
+  } catch (_) { /* logo unavailable — skip */ }
+
+  // Bank name — left side of header
   doc.setTextColor(...WHITE)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(24)
-  doc.text('Optima Credit Union', margin, 16)
+  doc.setFontSize(16)
+  doc.text('Optima Credit Union', margin, 18)
 
-  // Sub-line under bank name
-  doc.setFontSize(8)
+  // Receipt type subtitle
+  doc.setFontSize(8.5)
   doc.setFont('helvetica', 'normal')
-  doc.text('Optima Credit Union  |  Member FDIC  |  Equal Housing Lender', margin, 23)
+  doc.setTextColor(229, 201, 110) // light gold
+  const receiptTitle = isIntl ? 'International Wire Transfer Receipt'
+                               : isCredit ? 'Incoming Transfer Receipt'
+                               : 'Local Transfer Receipt'
+  doc.text(receiptTitle, margin, 27)
 
-  // Title — right-aligned
-  const title = isIntl ? 'International Wire Confirmation' : 'Local Transfer Confirmation'
-  doc.setFontSize(13)
-  doc.setFont('helvetica', 'bold')
-  doc.text(title, pageW - margin, 16, { align: 'right' })
+  // FDIC / date line
+  doc.setTextColor(180, 160, 100)
+  doc.setFontSize(7)
+  doc.text(`Member FDIC  ·  Equal Housing Lender  ·  Generated: ${formatDateShort(txn.date)}`, margin, 36)
 
-  // Date line — right-aligned
-  doc.setFontSize(8)
-  doc.setFont('helvetica', 'normal')
-  doc.text(formatDate(txn.date), pageW - margin, 24, { align: 'right' })
-
-  // Thin accent line at bottom of header
-  doc.setFillColor(...BRAND_GOLD)
-  doc.rect(0, 40, pageW, 1.5, 'F')
-
-  // ── Reference chip ────────────────────────────────────
+  // ══════════════════════════════════════════════════════════
+  // REFERENCE STRIP
+  // ══════════════════════════════════════════════════════════
   let y = 54
 
-  doc.setFillColor(245, 247, 250)
-  doc.roundedRect(margin, y - 6, contentW, 16, 3, 3, 'F')
-  doc.setFontSize(8)
-  doc.setTextColor(...GRAY)
+  doc.setFillColor(...WHITE)
+  doc.roundedRect(margin, y, cW, 14, 2, 2, 'F')
+  doc.setDrawColor(...GOLD)
+  doc.setLineWidth(0.4)
+  doc.roundedRect(margin, y, cW, 14, 2, 2, 'S')
+
+  doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
-  doc.text('Transaction Reference', margin + 6, y + 1)
-  doc.setFontSize(11)
-  doc.setTextColor(...DARK)
+  doc.setTextColor(...GRAY)
+  doc.text('Transaction Reference', margin + 5, y + 5.5)
+
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text(txn.ref, pageW - margin - 6, y + 1, { align: 'right' })
+  doc.setTextColor(...NAVY)
+  doc.text(txn.ref || '—', pageW - margin - 5, y + 5.5, { align: 'right' })
 
-  // ── Section: Transfer Details ─────────────────────────
-  y += 26
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...MID_GRAY)
+  doc.text(`Processed: ${formatDate(txn.date)}`, margin + 5, y + 11)
 
-  doc.setFillColor(...BRAND_GOLD)
-  doc.rect(margin, y, 3, 8, 'F')
-  doc.setFontSize(11)
-  doc.setTextColor(...BRAND_GOLD)
+  doc.setFontSize(8)
   doc.setFont('helvetica', 'bold')
-  doc.text('Transfer Details', margin + 7, y + 6)
+  doc.setTextColor(isCredit ? GOLD[0] : NAVY[0], isCredit ? GOLD[1] : NAVY[1], isCredit ? GOLD[2] : NAVY[2])
+  const statusText = `✓  ${isCredit ? 'RECEIVED' : 'SENT'} · COMPLETED`
+  doc.text(statusText, pageW - margin - 5, y + 11, { align: 'right' })
 
-  y += 16
+  // ══════════════════════════════════════════════════════════
+  // AMOUNT HIGHLIGHT BOX
+  // ══════════════════════════════════════════════════════════
+  y += 22
 
-  // Table rows helper
-  let rowIndex = 0
-  const drawRow = (label, value) => {
-    // Alternating background
-    if (rowIndex % 2 === 0) {
-      doc.setFillColor(248, 250, 252)
-      doc.rect(margin, y - 4.5, contentW, 11, 'F')
-    }
-    // Separator line
-    doc.setDrawColor(...LIGHT_GRAY)
-    doc.setLineWidth(0.2)
-    doc.line(margin, y + 6.5, pageW - margin, y + 6.5)
+  doc.setFillColor(...WHITE)
+  doc.roundedRect(margin, y, cW, 24, 3, 3, 'F')
 
-    // Label
-    doc.setFontSize(9)
+  // Left gold bar
+  doc.setFillColor(...GOLD)
+  doc.roundedRect(margin, y, 4, 24, 2, 2, 'F')
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(...GRAY)
+  doc.text(isCredit ? 'Amount Received' : 'Amount Sent', margin + 9, y + 8)
+
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...NAVY)
+  doc.text(`$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
+
+  if (txn.balanceAfter !== undefined && txn.balanceAfter !== null) {
+    doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(...GRAY)
-    doc.text(label, margin + 4, y + 2)
-
-    // Value
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(...DARK)
-    doc.text(String(value), pageW - margin - 4, y + 2, { align: 'right' })
-
-    y += 11
-    rowIndex++
+    doc.text(`Balance after: $${formatCurrency(txn.balanceAfter)}`, pageW - margin - 5, y + 19, { align: 'right' })
   }
 
-  drawRow('Beneficiary Name', txn.beneficiary)
+  // ══════════════════════════════════════════════════════════
+  // TRANSFER DETAILS TABLE
+  // ══════════════════════════════════════════════════════════
+  y += 32
 
-  const category = txn.category || (isIntl ? 'International Wire Transfer' : 'Local Transfer')
-  drawRow('Transaction Category', category)
+  // Section header
+  doc.setFillColor(...NAVY)
+  doc.rect(margin, y, cW, 8, 'F')
+  doc.setFontSize(8.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...WHITE)
+  doc.text('TRANSFER DETAILS', margin + 5, y + 5.5)
+
+  y += 8
+
+  // Table helper
+  let rowIdx = 0
+  const drawRow = (label, value, highlight = false) => {
+    const h = 10
+    if (rowIdx % 2 === 0) {
+      doc.setFillColor(255, 255, 255)
+    } else {
+      doc.setFillColor(244, 241, 234) // warm stripe
+    }
+    doc.rect(margin, y, cW, h, 'F')
+
+    // Bottom border
+    doc.setDrawColor(...DIVIDER)
+    doc.setLineWidth(0.15)
+    doc.line(margin, y + h, margin + cW, y + h)
+
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...GRAY)
+    doc.text(label, margin + 4, y + 6.5)
+
+    doc.setFont('helvetica', highlight ? 'bold' : 'normal')
+    if (highlight) doc.setTextColor(...NAVY); else doc.setTextColor(...DARK)
+    doc.text(String(value || '—'), pageW - margin - 4, y + 6.5, { align: 'right' })
+
+    y += h
+    rowIdx++
+  }
+
+  drawRow('Beneficiary / Recipient', txn.beneficiary || txn.toName || '—', true)
+  drawRow('Transfer Type', isIntl ? 'International Wire Transfer' : 'Local Bank Transfer')
 
   if (isIntl) {
     drawRow('IBAN / Account No.', txn.iban || '—')
     drawRow('SWIFT / BIC Code', txn.swift || '—')
-    drawRow('Bank Name', txn.bankName || '—')
+    drawRow('Beneficiary Bank', txn.bankName || '—')
     drawRow('Country', txn.country || '—')
   } else {
     drawRow('Account Number', txn.accountNumber || '—')
-    drawRow('Bank Name', txn.bankName || '—')
+    drawRow('Receiving Bank', txn.bankName || 'Optima Credit Union')
   }
 
-  drawRow('Transfer Amount', `$${formatCurrency(txn.amount)}`)
+  drawRow('Transfer Amount', `USD $${formatCurrency(txn.amount)}`, true)
+  drawRow('Direction', isCredit ? 'Incoming (Credit)' : 'Outgoing (Debit)')
+  drawRow('Status', 'Completed — Funds Settled')
+  drawRow('Transaction Date', formatDate(txn.date))
 
-  // ── Status badge ──────────────────────────────────────
-  y += 8
-  doc.setFillColor(253, 248, 236)
-  doc.roundedRect(margin, y - 4, 56, 12, 3, 3, 'F')
-  doc.setFontSize(9)
-  doc.setTextColor(...BRAND_GOLD)
-  doc.setFont('helvetica', 'bold')
-  doc.text('\u2713  Status: Completed', margin + 5, y + 3)
-
-  // Timestamp
-  doc.setFontSize(7.5)
-  doc.setTextColor(...GRAY)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Processed: ${formatDate(txn.date)}`, pageW - margin, y + 3, { align: 'right' })
-
-  // ── Divider ───────────────────────────────────────────
-  y += 20
-  doc.setDrawColor(...LIGHT_GRAY)
+  // Close table border
+  doc.setDrawColor(...NAVY)
   doc.setLineWidth(0.3)
-  doc.line(margin, y, pageW - margin, y)
+  doc.rect(margin, y - rowIdx * 10 - 8, cW, rowIdx * 10 + 8, 'S')
 
-  // ── Important Notice (international only) ──────────────
+  // ══════════════════════════════════════════════════════════
+  // INTERNATIONAL NOTICE BOX (intl only)
+  // ══════════════════════════════════════════════════════════
   if (isIntl) {
-    y += 10
+    y += 8
     doc.setFillColor(255, 251, 235)
-    doc.roundedRect(margin, y - 4, contentW, 22, 3, 3, 'F')
+    doc.roundedRect(margin, y, cW, 20, 2, 2, 'F')
+    doc.setDrawColor(201, 162, 58)
+    doc.setLineWidth(0.3)
+    doc.roundedRect(margin, y, cW, 20, 2, 2, 'S')
+    // left accent
+    doc.setFillColor(...GOLD)
+    doc.rect(margin, y, 3.5, 20, 'F')
+
     doc.setFontSize(8)
-    doc.setTextColor(161, 98, 7)
     doc.setFont('helvetica', 'bold')
-    doc.text('Important Notice', margin + 6, y + 2)
+    doc.setTextColor(161, 98, 7)
+    doc.text('Important — International Transfer Notice', margin + 7, y + 6)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
+    doc.setTextColor(130, 80, 0)
     doc.text(
-      'International wire transfers may take 1-3 business days to process. Fees may apply based on your account type.',
-      margin + 6, y + 9,
-      { maxWidth: contentW - 12 }
+      'International wires may take 1–3 business days. Correspondent bank fees may apply. Exchange rates are',
+      margin + 7, y + 12, { maxWidth: cW - 10 }
     )
+    doc.text('determined at time of settlement. Contact support if funds are not received within 5 business days.',
+      margin + 7, y + 17, { maxWidth: cW - 10 }
+    )
+    y += 20
   }
 
-  // ── Footer ────────────────────────────────────────────
-  const footerY = pageH - 42
+  // ══════════════════════════════════════════════════════════
+  // FOOTER
+  // ══════════════════════════════════════════════════════════
+  const footerY = pageH - 30
 
-  // Green accent line
-  doc.setDrawColor(...BRAND_GOLD)
-  doc.setLineWidth(0.6)
-  doc.line(margin, footerY, pageW - margin, footerY)
+  doc.setFillColor(...NAVY)
+  doc.rect(0, footerY, pageW, 0.8, 'F')
+  doc.setFillColor(...GOLD)
+  doc.rect(0, footerY + 0.8, pageW, 0.4, 'F')
 
-  // Footer text
   doc.setFontSize(7)
+  doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRAY)
-  doc.setFont('helvetica', 'normal')
-  doc.text(
-    'This is a computer-generated document and requires no signature.',
-    pageW / 2, footerY + 6,
-    { align: 'center' }
-  )
-  doc.text(
-    'Optima Credit Union  |  Member FDIC  |  Equal Housing Lender',
-    pageW / 2, footerY + 11,
-    { align: 'center' }
-  )
-  doc.text(
-    `\u00A9 ${new Date().getFullYear()} Optima Credit Union. All rights reserved.`,
-    pageW / 2, footerY + 16,
-    { align: 'center' }
-  )
+  doc.text('This is a computer-generated receipt. No signature required.', pageW / 2, footerY + 6, { align: 'center' })
 
-  // ── Bank Addresses ────────────────────────────────────
+  doc.setFontSize(7.5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...NAVY)
+  doc.text('Optima Credit Union', pageW / 2, footerY + 12, { align: 'center' })
+
   doc.setFontSize(6.5)
-  doc.setTextColor(130, 130, 130)
-  doc.setFont('helvetica', 'bold')
-  doc.text('U.S. Corporate Office:', margin, footerY + 24)
   doc.setFont('helvetica', 'normal')
-  doc.text('4140 Church Road, Mount Laurel, N.J., 08054', margin + 32, footerY + 24)
-
-  doc.setFont('helvetica', 'bold')
-  doc.text('Customer Support:', margin, footerY + 29)
-  doc.setFont('helvetica', 'normal')
-  doc.text('1-800-555-0199  |  support@optimacreditunion.com', margin + 26, footerY + 29)
+  doc.setTextColor(...MID_GRAY)
+  doc.text('Member FDIC  ·  Equal Housing Lender  ·  1-800-555-0199  ·  support@optimacreditunion.com',
+    pageW / 2, footerY + 18, { align: 'center' })
+  doc.text(`© ${new Date().getFullYear()} Optima Credit Union. All rights reserved. Reference: ${txn.ref}`,
+    pageW / 2, footerY + 23, { align: 'center' })
 
   // ══════════════════════════════════════════════════════════
-  // WATERMARK — drawn LAST so GState opacity issue doesn't
-  // affect any readable content above.
+  // WATERMARK — drawn last (lowest opacity)
   // ══════════════════════════════════════════════════════════
-  const logoW = 80
-  const logoH = 71  // maintain aspect ratio
-  const logoX = (pageW - logoW) / 2
-  const logoY = (pageH - logoH) / 2 - 10
   try {
-    doc.setGState(new doc.GState({ opacity: 0.07 }))
-    doc.addImage(optimaLogoUrl, 'PNG', logoX, logoY, logoW, logoH)
-    // No need to reset — watermark is the last thing drawn
-  } catch (_) {
-    // GState not supported in this build — skip watermark silently
-  }
+    doc.setGState(new doc.GState({ opacity: 0.05 }))
+    const wW = 90, wH = Math.round(90 / 2.46)
+    doc.addImage(optimaLogoUrl, 'PNG', (pageW - wW) / 2, (pageH - wH) / 2, wW, wH)
+  } catch (_) { /* GState unsupported — skip */ }
 
-  // ── Save ──────────────────────────────────────────────
-  const filename = `TD_Bank_${isIntl ? 'Wire' : 'Transfer'}_${txn.ref}.pdf`
-  doc.save(filename)
+  // ── Save ──────────────────────────────────────────────────
+  const fname = `Optima_${isIntl ? 'Wire' : 'Transfer'}_${txn.ref || Date.now()}.pdf`
+  doc.save(fname)
 }

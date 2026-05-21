@@ -2618,7 +2618,7 @@ a { color: inherit; text-decoration: none; }
   position: fixed;
   inset: 0;
   z-index: 1200;
-  background: transparent;
+  background: #f6f4ef;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -4502,9 +4502,9 @@ a { color: inherit; text-decoration: none; }
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   font-size: 0.85rem;
 }
-.tf-receipt-row span { color: rgba(255,255,255,0.40); }
+.tf-receipt-row span { color: rgba(11,31,77,0.50); }
 .tf-receipt-row strong {
-  color: rgba(255,255,255,0.88);
+  color: #0b1f4d;
   font-family: var(--font-mono);
   font-size: 0.82rem;
 }
@@ -4719,7 +4719,7 @@ a { color: inherit; text-decoration: none; }
 }
 .ai-balance-label {
   font-size: 0.78rem;
-  color: rgba(255,255,255,0.7);
+  color: rgba(11,31,77,0.60);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -4727,7 +4727,7 @@ a { color: inherit; text-decoration: none; }
 .ai-balance-value {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #fff;
+  color: #0b1f4d;
 }
 .ai-rows {
   display: flex;
@@ -4744,7 +4744,7 @@ a { color: inherit; text-decoration: none; }
 .ai-row:last-child { border-bottom: none; }
 .ai-row-label {
   font-size: 0.8rem;
-  color: rgba(255,255,255,0.40);
+  color: rgba(11,31,77,0.50);
   font-weight: 500;
 }
 .ai-row-value-wrap {
@@ -4754,7 +4754,7 @@ a { color: inherit; text-decoration: none; }
 }
 .ai-row-value {
   font-size: 0.82rem;
-  color: rgba(255,255,255,0.88);
+  color: #0b1f4d;
   font-weight: 600;
 }
 .ai-badge-active {
@@ -4772,10 +4772,10 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: rgba(255,255,255,0.40);
+  color: rgba(11,31,77,0.45);
   transition: all 0.15s;
 }
-.ai-copy-btn:hover { background: rgba(0,0,0,0.06); color: rgba(255,255,255,0.70); }
+.ai-copy-btn:hover { background: rgba(11,31,77,0.06); color: rgba(11,31,77,0.80); }
 .ai-copy-btn--ok { color: #c9a23a; border-color: rgba(201,162,58,0.3); background: rgba(201,162,58,0.06); }
 
 /* ── Deposit overlay ────────────────────────────────────────── */
@@ -4797,15 +4797,13 @@ a { color: inherit; text-decoration: none; }
   padding: var(--sp-3) var(--sp-4);
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: var(--radius-lg);
-  background: rgba(255,255,255,0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: #f8f5ee;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
   text-align: left;
 }
 .dep-method-btn:hover {
-  background: rgba(255,255,255,0.8);
+  background: #ede9de;
   border-color: rgba(201,162,58,0.2);
 }
 .dep-method-icon {
@@ -4821,11 +4819,11 @@ a { color: inherit; text-decoration: none; }
 .dep-method-label {
   font-size: 0.9rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.88);
+  color: #0b1f4d;
 }
 .dep-method-desc {
   font-size: 0.74rem;
-  color: rgba(255,255,255,0.40);
+  color: rgba(11,31,77,0.50);
 }
 .dep-method-arrow {
   font-size: 1.4rem;
@@ -4834,12 +4832,12 @@ a { color: inherit; text-decoration: none; }
 }
 .dep-back-btn {
   background: transparent;
-  color: rgba(255,255,255,0.55);
+  color: rgba(11,31,77,0.50);
   font-weight: 600;
   font-size: 0.85rem;
   margin-top: 0;
 }
-.dep-back-btn:hover { color: rgba(255,255,255,0.82); }
+.dep-back-btn:hover { color: #0b1f4d; }
 
 /* ── Bank Card overlay ──────────────────────────────────────── */
 .bc-sheet {
@@ -5080,9 +5078,9 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.82rem;
 }
 .bc-detail-row:last-child { border-bottom: none; }
-.bc-detail-row span { color: rgba(255,255,255,0.40); }
+.bc-detail-row span { color: rgba(11,31,77,0.50); }
 .bc-detail-row strong {
-  color: rgba(255,255,255,0.88);
+  color: #0b1f4d;
   font-size: 0.8rem;
 }
 .bc-status-active {
@@ -5115,17 +5113,15 @@ a { color: inherit; text-decoration: none; }
   padding: 12px;
   border: 1px solid rgba(0,0,0,0.08);
   border-radius: var(--radius-lg);
-  background: rgba(255,255,255,0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: #f8f5ee;
   font-size: 0.82rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.70);
+  color: rgba(11,31,77,0.70);
   cursor: pointer;
   transition: background 0.15s;
 }
 .bc-action-btn:hover {
-  background: rgba(255,255,255,0.8);
+  background: rgba(11,31,77,0.08);
 }
 .bc-action-btn--active {
   background: rgba(99,102,241,0.1);
@@ -7898,6 +7894,23 @@ button:active {
 .db:not(.db--light) .tf-input::placeholder {
   color: rgba(255,255,255,0.30);
 }
+
+/* Dark mode crypto page & card sheet */
+.db:not(.db--light) .crypto-page { background: #080f2a; }
+.db:not(.db--light) .bc-sheet { background: rgba(8,15,42,0.97); border: 1px solid rgba(201,162,58,0.18); }
+.db:not(.db--light) .bc-detail-row span { color: rgba(11,31,77,0.50); }
+.db:not(.db--light) .bc-detail-row strong { color: #0b1f4d; }
+.db:not(.db--light) .bc-action-btn { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.10); color: rgba(255,255,255,0.75); }
+.db:not(.db--light) .dep-method-label { color: rgba(255,255,255,0.88); }
+.db:not(.db--light) .dep-method-desc { color: rgba(255,255,255,0.45); }
+.db:not(.db--light) .dep-method-btn { background: rgba(255,255,255,0.08); }
+.db:not(.db--light) .dep-back-btn { color: rgba(255,255,255,0.55); }
+.db:not(.db--light) .ai-balance-label { color: rgba(255,255,255,0.65); }
+.db:not(.db--light) .ai-balance-value { color: #fff; }
+.db:not(.db--light) .ai-row-label { color: rgba(255,255,255,0.45); }
+.db:not(.db--light) .ai-row-value { color: rgba(255,255,255,0.88); }
+.db:not(.db--light) .ai-copy-btn { color: rgba(255,255,255,0.45); }
+.db:not(.db--light) .tf-receipt-row span { color: rgba(255,255,255,0.45); }
 .db:not(.db--light) .tf-btn--primary {
   background: linear-gradient(135deg, #c9a23a, #c9a23a);
 }
