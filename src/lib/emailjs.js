@@ -7,7 +7,7 @@
  *   VITE_EMAILJS_TEMPLATE_CONTACT   (contact_request)
  *   VITE_EMAILJS_TEMPLATE_SUPPORT   (support_request)
  *   VITE_EMAILJS_TEMPLATE_SECURITY  (security_report)
- *   VITE_EMAILJS_TEMPLATE_DEMO      (demo_account_request)
+ *   VITE_EMAILJS_TEMPLATE_NEWACCOUNT  (new_account_request)
  */
 import emailjs from '@emailjs/browser'
 
@@ -18,7 +18,7 @@ export const TEMPLATES = {
   contact:  import.meta.env.VITE_EMAILJS_TEMPLATE_CONTACT  || 'contact_request',
   support:  import.meta.env.VITE_EMAILJS_TEMPLATE_SUPPORT  || 'support_request',
   security: import.meta.env.VITE_EMAILJS_TEMPLATE_SECURITY || 'security_report',
-  demo:     import.meta.env.VITE_EMAILJS_TEMPLATE_DEMO     || 'demo_account_request',
+  newacct:  import.meta.env.VITE_EMAILJS_TEMPLATE_NEWACCOUNT || 'new_account_request',
 }
 
 export function isEmailJSConfigured() {

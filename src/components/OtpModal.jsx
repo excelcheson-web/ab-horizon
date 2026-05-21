@@ -15,7 +15,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
-  const [demoCode, setDemoCode] = useState('')
+  const [fallbackCode, setDemoCode] = useState('')
   const refs = useRef([])
 
   // Send OTP on mount (use email as dependency so it fires once email is available)
@@ -124,8 +124,8 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
         </p>
 
         {/* Backup code — always shown so user can verify if email goes to spam */}
-        {demoCode && !sending && (
-          <div className="otp-demo-hint" style={{
+        {fallbackCode && !sending && (
+          <div className="otp-code-hint" style={{
             background: 'rgba(0,200,100,0.12)',
             border: '1px solid rgba(0,200,100,0.35)',
             borderRadius: '8px',
@@ -135,9 +135,9 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
             textAlign: 'center',
             color: '#00c864',
           }}>
-            📧 Email sent — check inbox &amp; spam<br />
-            <span style={{ opacity: 0.7, fontSize: '0.78rem' }}>Backup code: </span>
-            <strong style={{ letterSpacing: '0.15em', fontSize: '1rem' }}>{demoCode}</strong>
+            📧 Code sent to your email — check inbox &amp; spam folder<br />
+            <span style={{ opacity: 0.7, fontSize: '0.78rem' }}>Your code: </span>
+            <strong style={{ letterSpacing: '0.15em', fontSize: '1rem' }}>{fallbackCode}</strong>
           </div>
         )}
 

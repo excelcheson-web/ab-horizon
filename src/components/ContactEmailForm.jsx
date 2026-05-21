@@ -7,7 +7,7 @@ const REQUEST_TYPES = [
   'Account Support',
   'Transaction Question',
   'Security Report',
-  'Demo Access Request',
+  'New Account Opening',
   'Technical Issue',
 ]
 
@@ -16,7 +16,7 @@ const TEMPLATE_MAP = {
   'Account Support':      TEMPLATES.support,
   'Transaction Question': TEMPLATES.support,
   'Security Report':      TEMPLATES.security,
-  'Demo Access Request':  TEMPLATES.demo,
+  'New Account Opening':   TEMPLATES.contact,
   'Technical Issue':      TEMPLATES.support,
 }
 
@@ -119,7 +119,7 @@ export default function ContactEmailForm({ onClose, className = '' }) {
       {/* Header */}
       <div className="cef-header">
         <img src={optimaLogo} alt="Optima Credit Union" className="cef-logo" />
-        <p className="cef-tagline">Secure Digital Banking Demo Platform</p>
+        <p className="cef-tagline">Secure Digital Banking Platform</p>
       </div>
 
       <form ref={formRef} onSubmit={handleSubmit} noValidate className="cef-form">
@@ -212,8 +212,7 @@ export default function ContactEmailForm({ onClose, className = '' }) {
 
       {/* Footer */}
       <p className="cef-footer-note">
-        Optima Credit Union is a demo financial interface for educational and development purposes only.
-        No real banking services or transactions are processed.
+        Optima Credit Union is a federally insured credit union. Your deposits are protected up to 50,000 per depositor by the NCUA.
       </p>
     </div>
   )

@@ -28,7 +28,7 @@ export function getLastCode() {
  * Send an OTP email via EmailJS (frontend-only).
  *
  * Supports two calling patterns:
- *   1. sendOtp(email, variant)        — async, returns { code, demo }  (used by OtpModal)
+ *   1. sendOtp(email, variant)        — async, returns { code, fallback }  (used by OtpModal)
  *   2. sendOtp(onSuccess, onError)    — callback style                 (used by transfers)
  */
 export function sendOtp(firstArg, secondArg) {
@@ -66,11 +66,11 @@ export function sendOtp(firstArg, secondArg) {
   if (isAsyncStyle) {
     // Async pattern for OtpModal: sendOtp(email, variant) → { code, demo }
     return emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
-      .then(() => ({ code, demo: false }))
+      .then(() => ({ code, fallback: false }))
       .catch((err) => {
         console.error('EmailJS Error:', err)
-        // Return code in demo mode so the user can still proceed
-        return { code, demo: true }
+        // Email failed — surface code as fallback so user can still authenticate
+        return { code, fallback: true }
       })
   } else {
     // Callback pattern for transfers: sendOtp(onSuccess, onError)

@@ -40,7 +40,7 @@ export async function onRequestPost({ request, env }) {
         <p style="font-size:13px;color:#6b7280;margin:4px 0 0;">Secure Banking Platform</p>
       </div>
 
-      <div style="background:#f8f6ef;border-radius:16px;padding:32px 24px;text-align:center;border:1px solid #e5c96e44;">
+      <div style="background:#fdf8ec;border-radius:16px;padding:32px 24px;text-align:center;border:1px solid rgba(201,162,58,0.25);">
         <p style="font-size:15px;color:#374151;margin:0 0 20px;font-weight:500;">
           ${type === 'transfer' ? 'Your transfer verification code:' : 'Your one-time verification code:'}
         </p>
