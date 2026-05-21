@@ -261,6 +261,44 @@ export default function Dashboard({ profile, onLogout }) {
   const logoMenuRef = useRef(null)
   const wealthRef = useRef(null)
   const loadingTimerRef = useRef(null)
+  const idleWarnRef = useRef(null)
+  const idleLogoutRef = useRef(null)
+  const [idleWarning, setIdleWarning] = useState(false)
+
+  // ── Idle auto-logout (20 min) ─────────────────────────────
+  useEffect(() => {
+    const WARN_MS   = 19 * 60 * 1000   // show warning at 19 min
+    const LOGOUT_MS = 20 * 60 * 1000   // logout at 20 min
+
+    function doLogout() {
+      clearTimeout(idleWarnRef.current)
+      clearTimeout(idleLogoutRef.current)
+      try { logoutUser() } catch { /* silent */ }
+      localStorage.removeItem('securebank_user')
+      localStorage.removeItem('user_account_type')
+      localStorage.removeItem('privacy_state')
+      onLogout()
+    }
+
+    function resetTimers() {
+      setIdleWarning(false)
+      clearTimeout(idleWarnRef.current)
+      clearTimeout(idleLogoutRef.current)
+      idleWarnRef.current   = setTimeout(() => setIdleWarning(true), WARN_MS)
+      idleLogoutRef.current = setTimeout(doLogout, LOGOUT_MS)
+    }
+
+    const EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'click', 'scroll']
+    EVENTS.forEach(e => window.addEventListener(e, resetTimers, { passive: true }))
+    resetTimers()
+
+    return () => {
+      EVENTS.forEach(e => window.removeEventListener(e, resetTimers))
+      clearTimeout(idleWarnRef.current)
+      clearTimeout(idleLogoutRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Update profilePic when profile prop changes
   useEffect(() => {
@@ -624,6 +662,20 @@ export default function Dashboard({ profile, onLogout }) {
 
   return (
     <div className={`db ${theme === 'light' ? 'db--light' : ''}`}>
+      {/* ── Idle session warning ────────────────────────────── */}
+      {idleWarning && (
+        <div className="idle-overlay">
+          <div className="idle-card">
+            <div className="idle-icon">⏱</div>
+            <h3 className="idle-title">Still there?</h3>
+            <p className="idle-desc">For your security, you will be logged out in <strong>1 minute</strong> due to inactivity.</p>
+            <button className="idle-stay-btn" onClick={() => setIdleWarning(false)}>
+              Stay Logged In
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay */}
       {overlayLoading && (
         <div className="db-loading-overlay">
