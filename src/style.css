@@ -1119,6 +1119,98 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.8rem; color: rgba(255,255,255,0.35);
   text-align: center; margin: 0;
 }
+.contact-send-error {
+  padding: 11px 14px; margin-bottom: 12px;
+  background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 10px; font-size: 0.875rem; color: #fca5a5;
+}
+
+/* ── ContactEmailForm (cef-*) ─────────────────────────────── */
+.cef-card {
+  background: rgba(13,27,75,0.92);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(201,162,58,0.22);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+  max-width: 560px; width: 100%;
+}
+.cef-header {
+  background: #0b1f4d;
+  padding: 28px 32px 22px;
+  text-align: center;
+  border-bottom: 1px solid rgba(201,162,58,0.18);
+}
+.cef-logo {
+  max-width: 180px; height: auto;
+  background: #fff; border-radius: 10px; padding: 8px 14px;
+  display: inline-block;
+}
+.cef-tagline {
+  margin: 10px 0 0; font-size: 0.8125rem; font-weight: 600;
+  color: #c9a23a; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.cef-form { padding: 28px 32px 8px; display: flex; flex-direction: column; gap: 16px; }
+.cef-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .cef-row { grid-template-columns: 1fr; } }
+.cef-field { display: flex; flex-direction: column; gap: 6px; }
+.cef-label {
+  font-size: 0.8125rem; font-weight: 600;
+  color: rgba(255,255,255,0.75); display: flex; align-items: center; gap: 4px;
+}
+.cef-req { color: #e5c96e; }
+.cef-optional { color: rgba(255,255,255,0.35); font-weight: 400; font-size: 0.75rem; }
+.cef-input {
+  padding: 11px 14px; border-radius: 10px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: #fff; font-size: 0.9375rem; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s; width: 100%; box-sizing: border-box;
+}
+.cef-input::placeholder { color: rgba(255,255,255,0.28); }
+.cef-input:focus {
+  border-color: rgba(201,162,58,0.65);
+  box-shadow: 0 0 0 3px rgba(201,162,58,0.15);
+}
+.cef-input--err { border-color: rgba(239,68,68,0.55); }
+.cef-select { cursor: pointer; }
+.cef-select option { background: #0d1b4b; color: #fff; }
+.cef-textarea { resize: vertical; min-height: 110px; }
+.cef-err { font-size: 0.78rem; color: #fca5a5; }
+.cef-send-error {
+  padding: 11px 14px; background: rgba(239,68,68,0.10);
+  border: 1px solid rgba(239,68,68,0.25); border-radius: 10px;
+  font-size: 0.875rem; color: #fca5a5;
+}
+.cef-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px; border-radius: 10px; border: none;
+  background: #c9a23a; color: #fff;
+  font-size: 0.9375rem; font-weight: 700;
+  cursor: pointer; transition: opacity 0.15s;
+  box-shadow: 0 4px 20px rgba(201,162,58,0.35);
+}
+.cef-btn:hover:not(:disabled) { opacity: 0.88; }
+.cef-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.cef-spinner {
+  width: 17px; height: 17px;
+  border: 2.5px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.65s linear infinite; display: inline-block;
+}
+.cef-footer-note {
+  padding: 16px 32px; text-align: center;
+  font-size: 0.75rem; color: rgba(255,255,255,0.30); margin: 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.cef-success {
+  padding: 40px 32px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+.cef-success-icon { color: #c9a23a; }
+.cef-success-title { font-size: 1.5rem; font-weight: 800; color: #fff; margin: 0; }
+.cef-success-sub { font-size: 0.9375rem; color: rgba(255,255,255,0.60); margin: 0; max-width: 340px; }
+.cef-ref { font-size: 0.8125rem; color: rgba(255,255,255,0.40); margin: 0; }
+.cef-ref-id { font-family: monospace; color: #e5c96e; font-weight: 700; letter-spacing: 0.05em; }
 
 /* Success state */
 .contact-success {

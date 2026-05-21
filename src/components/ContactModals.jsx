@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { sendData, TEMPLATES, isEmailJSConfigured } from '../lib/emailjs'
 
 const CloseIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -40,10 +41,11 @@ function ContactBase({ title, subtitle, icon, onClose, children }) {
    CONTACT US
    ═══════════════════════════════════════════════════════════ */
 export function ContactUsModal({ onClose }) {
-  const [form, setForm]       = useState({ name:'', email:'', subject:'', message:'' })
+  const [form, setForm]       = useState({ name:'', email:'', phone:'', subject:'', message:'' })
   const [errors, setErrors]   = useState({})
   const [sending, setSending] = useState(false)
   const [sent, setSent]       = useState(false)
+  const [sendError, setSendError] = useState('')
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
@@ -57,12 +59,27 @@ export function ContactUsModal({ onClose }) {
     return e
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSending(true)
-    setTimeout(() => { setSending(false); setSent(true) }, 1800)
+    try {
+      await sendData(TEMPLATES.contact, {
+        from_name: form.name,
+        from_email: form.email,
+        phone: form.phone || '—',
+        request_type: form.subject || 'General Inquiry',
+        subject: form.subject,
+        message: form.message,
+        created_at: new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) + ' ET',
+      })
+      setSent(true)
+    } catch (err) {
+      setSendError(isEmailJSConfigured() ? 'Failed to send. Please try again.' : 'Email service not configured.')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (sent) {
@@ -73,11 +90,11 @@ export function ContactUsModal({ onClose }) {
           <h3>We've received your message!</h3>
           <p>
             Thank you for reaching out. A member of our team will respond to{' '}
-            <strong style={{color:'#93c5fd'}}>{form.email}</strong> within{' '}
+            <strong style={{color:'#e5c96e'}}>{form.email}</strong> within{' '}
             <strong>1–2 business days</strong>.
           </p>
           <p className="contact-ref">
-            Reference ID: <span style={{color:'#60a5fa',fontFamily:'monospace'}}>
+            Reference ID: <span style={{color:'#e5c96e',fontFamily:'monospace'}}>
               CU-{Date.now().toString(36).toUpperCase().slice(-8)}
             </span>
           </p>
@@ -119,6 +136,15 @@ export function ContactUsModal({ onClose }) {
         </div>
 
         <div className="contact-field">
+          <label className="contact-label">Phone Number <span className="contact-optional">(optional)</span></label>
+          <input
+            className="contact-input"
+            type="tel" placeholder="+1 (555) 000-0000"
+            value={form.phone} onChange={e => set('phone', e.target.value)}
+          />
+        </div>
+
+        <div className="contact-field">
           <label className="contact-label">Subject <span className="contact-req">*</span></label>
           <select
             className={`contact-input contact-select ${errors.subject ? 'contact-input--err' : ''}`}
@@ -154,8 +180,10 @@ export function ContactUsModal({ onClose }) {
 
         <div className="contact-info-box">
           <span>📞</span>
-          <span>Prefer to call? Reach us at <strong style={{color:'#93c5fd'}}>1-800-555-0100</strong> — Mon–Fri, 8am–8pm ET</span>
+          <span>Prefer to call? Reach us at <strong style={{color:'#e5c96e'}}>1-800-555-0100</strong> — Mon–Fri, 8am–8pm ET</span>
         </div>
+
+        {sendError && <div className="contact-send-error">{sendError}</div>}
 
         <button type="submit" className="contact-submit-btn" disabled={sending}>
           {sending ? (
@@ -178,6 +206,7 @@ export function SupportCenterModal({ onClose }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent]       = useState(false)
   const [ticketId]            = useState('TKT-' + Math.random().toString(36).slice(2,8).toUpperCase())
+  const [sendError, setSendError] = useState('')
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
@@ -190,15 +219,30 @@ export function SupportCenterModal({ onClose }) {
     return e
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSending(true)
-    setTimeout(() => { setSending(false); setSent(true) }, 2000)
+    try {
+      await sendData(TEMPLATES.support, {
+        from_name: form.name,
+        from_email: form.email,
+        phone: form.accountNumber ? ('Acct: ' + form.accountNumber) : '—',
+        request_type: form.category || 'Account Support',
+        subject: form.category + ' — Priority: ' + form.priority,
+        message: form.description + (form.screenshot ? '\n\nScreenshot: ' + form.screenshot : ''),
+        created_at: new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' }) + ' ET',
+      })
+      setSent(true)
+    } catch (err) {
+      setSendError(isEmailJSConfigured() ? 'Failed to send. Please try again.' : 'Email service not configured.')
+    } finally {
+      setSending(false)
+    }
   }
 
-  const priorityColors = { low:'#34d399', medium:'#f59e0b', high:'#f97316', urgent:'#ef4444' }
+  const priorityColors = { low:'#c9a23a', medium:'#f59e0b', high:'#f97316', urgent:'#ef4444' }
 
   if (sent) {
     return (
@@ -208,12 +252,12 @@ export function SupportCenterModal({ onClose }) {
           <h3>Support Ticket Created</h3>
           <p>
             Your ticket has been assigned to our support team. You'll receive updates at{' '}
-            <strong style={{color:'#93c5fd'}}>{form.email}</strong>.
+            <strong style={{color:'#e5c96e'}}>{form.email}</strong>.
           </p>
           <div className="support-ticket-box">
             <div className="support-ticket-row">
               <span>Ticket ID</span>
-              <span style={{color:'#60a5fa',fontFamily:'monospace',fontWeight:700}}>{ticketId}</span>
+              <span style={{color:'#e5c96e',fontFamily:'monospace',fontWeight:700}}>{ticketId}</span>
             </div>
             <div className="support-ticket-row">
               <span>Priority</span>
