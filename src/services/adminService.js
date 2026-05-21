@@ -677,6 +677,8 @@ export async function updateUserProfilePicture(uid, profilePicUrl) {
     await updateDoc(userRef, { profilePic: profilePicUrl })
   })
   broadcastToApp(uid, { profilePic: profilePicUrl })
+  // Cross-tab real-time sync: native storage event fires in the user's open tab
+  localStorage.setItem('admin_profile_pic_update', JSON.stringify({ uid, url: profilePicUrl, ts: Date.now() }))
   return { success: true, profilePic: profilePicUrl }
 }
 

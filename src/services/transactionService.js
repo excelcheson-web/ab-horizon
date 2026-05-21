@@ -103,7 +103,10 @@ export async function loadTransactions(uid) {
       collection(db, 'profiles', uid, 'transactions'),
       orderBy('date', 'desc')
     )
-    const snap = await getDocs(q)
+    const snap = await Promise.race([
+      getDocs(q),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+    ])
     const firestoreTxns = snap.docs.map((d) => d.data())
 
     if (firestoreTxns.length === 0 && localTxns.length === 0) return []

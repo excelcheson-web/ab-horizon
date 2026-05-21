@@ -27,6 +27,7 @@ import {
 import { db } from '../services/firebaseClient'
 import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { syncBalanceToFirestore } from '../services/adminService'
+import { loadTransactions } from '../services/transactionService'
 import { useLanguage } from '../i18n/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
 import { useFirestoreDoc, useDebouncedDocUpdate } from '../hooks/useDebouncedFirestore'
@@ -254,6 +255,9 @@ export default function Dashboard({ profile, onLogout }) {
   const [overlayLoading, setOverlayLoading] = useState(false)
   const [showGreeting, setShowGreeting] = useState(true)
   const [profilePic, setProfilePic] = useState(profile?.profilePic || null)
+  const [recentTxns, setRecentTxns] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('transfer_history') || '[]') } catch { return [] }
+  })
   const logoMenuRef = useRef(null)
   const wealthRef = useRef(null)
   const loadingTimerRef = useRef(null)
@@ -264,6 +268,15 @@ export default function Dashboard({ profile, onLogout }) {
       setProfilePic(profile.profilePic)
     }
   }, [profile?.profilePic])
+
+  // ── Load recent transactions from Firestore on mount ──────
+  useEffect(() => {
+    const uid = profile?.uid || profile?.id
+    if (!uid) return
+    loadTransactions(uid).then((txns) => {
+      if (txns.length > 0) setRecentTxns(txns)
+    }).catch(() => {})
+  }, [profile?.uid, profile?.id])
 
   // ── Fetch real balance from Firestore ─────────────────────
   // PRIORITY: Load from localStorage FIRST, only READ from Firestore (never write)
@@ -497,10 +510,23 @@ export default function Dashboard({ profile, onLogout }) {
         setBankBalance(parseFloat(e.newValue || '0'))
       }
       if (e.key === 'system_notification') checkSysAlert()
+      if (e.key === 'transfer_history') {
+        try {
+          const txns = JSON.parse(e.newValue || '[]')
+          if (txns.length > 0) setRecentTxns(txns)
+        } catch { /* silent */ }
+      }
+      if (e.key === 'admin_profile_pic_update') {
+        try {
+          const update = JSON.parse(e.newValue || '{}')
+          const currentUid = profile?.uid || profile?.id
+          if (update.uid === currentUid) setProfilePic(update.url || null)
+        } catch { /* silent */ }
+      }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [checkNotifications, checkSysAlert])
+  }, [checkNotifications, checkSysAlert, profile?.uid, profile?.id])
 
   // Real-time sync and cloud push logic removed
 
@@ -1105,8 +1131,7 @@ export default function Dashboard({ profile, onLogout }) {
           <h3 className="db-txn-title">{t('recentActivity')}</h3>
         </div>
         {(() => {
-          const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
-          const recent = history.slice(0, 3)
+          const recent = recentTxns.slice(0, 3)
           // Credit types: money coming IN (green +)
           const creditTypes = ['deposit', 'credit', 'payroll', 'refund', 'incoming']
           // Debit types: money going OUT (red -)
