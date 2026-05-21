@@ -1,7 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 120 120" fill="none">
-  <path d="M60 6C40 6 14 14 14 14v46c0 28 46 48 46 48s46-20 46-48V14S86 6 60 6z" fill="#2d6a2e"/>
-  <path d="M60 12C42 12 20 19 20 19v41c0 24 40 42 40 42s40-18 40-42V19S78 12 60 12z" fill="#34a853"/>
-  <rect x="28" y="38" width="32" height="7" rx="1.5" fill="#fff"/>
-  <rect x="40" y="38" width="8" height="36" rx="1.5" fill="#fff"/>
-  <path d="M68 38h10c9 0 16 7 16 17.5S87 73 78 73H68V38z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- Navy rounded-square background -->
+  <rect width="48" height="48" rx="11" fill="#0d1b4b"/>
+  <!-- Gold border ring -->
+  <rect x="1.5" y="1.5" width="45" height="45" rx="9.5" fill="none" stroke="#c9a23a" stroke-width="1.5"/>
+  <!-- "O" in gold, matching the logo badge style -->
+  <text
+    x="24" y="33"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="28"
+    font-weight="900"
+    fill="#e5c96e"
+    text-anchor="middle"
+    letter-spacing="-0.5"
+  >O</text>
 </svg>
