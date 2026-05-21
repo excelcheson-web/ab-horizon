@@ -92,10 +92,10 @@ const FEATURES = [
 ]
 
 const STATS = [
-  { value: '4.8M+', label: 'Accounts Opened',   color: '#60a5fa' },
-  { value: '$220B', label: 'Processed Annually', color: '#38bdf8' },
-  { value: '99.9%', label: 'Platform Uptime',    color: '#818cf8' },
-  { value: '190+',  label: 'Countries Reached',  color: '#14b8a6' },
+  { value: '4.8M+', label: 'Accounts Opened',   color: '#c9a23a' },
+  { value: '$220B', label: 'Processed Annually', color: '#c9a23a' },
+  { value: '99.9%', label: 'Platform Uptime',    color: '#c9a23a' },
+  { value: '190+',  label: 'Countries Reached',  color: '#c9a23a' },
 ]
 
 const HOW_STEPS = [

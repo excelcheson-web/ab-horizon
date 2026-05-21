@@ -5,7 +5,7 @@ export default function VaultLoader({ message = 'Securing your session…' }) {
     <div className="vault-loader-screen">
       {/* Bank placeholder logo */}
       <div className="vault-logo">
-        <TDLogo size={64} />
+        <TDLogo size={56} full />
       </div>
       {/* Spinning vault */}
       <div className="vault">
