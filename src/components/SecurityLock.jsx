@@ -134,7 +134,7 @@ export default function SecurityLock({ children, onForceLogout }) {
     <div className="sl-overlay">
       <div className="sl-card">
         <div className="sl-logo">
-          <TDLogo size={48} />
+          <TDLogo size={44} full />
         </div>
         <div className="sl-profile">
           {user.profilePic ? (

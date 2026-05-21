@@ -772,8 +772,9 @@ export default function Dashboard({ profile, onLogout }) {
       <header className="db-header">
         {/* Left: Logo with context menu */}
         <div className="db-header-logo" ref={logoMenuRef}>
-          <button className="db-logo-btn" onClick={() => setShowLogoMenu((p) => !p)}>
-            <TDLogo size={32} className="td-logo-sm" style={{ width: '32px', height: '32px', borderRadius: '8px' }} />
+          <button className="db-logo-btn" onClick={() => setShowLogoMenu((p) => !p)} style={{ display:'flex', alignItems:'center', gap:'10px', background:'none', border:'none', cursor:'pointer', padding:0 }}>
+            <TDLogo size={30} full />
+            <span className="db-bank-name">Optima Credit Union</span>
           </button>
           {showLogoMenu && (
             <div className="db-logo-menu">

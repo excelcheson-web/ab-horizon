@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import optimaLogoUrl from '../assets/optima-logo.png'
 
 const BRAND_GOLD = [201, 162, 58]    // #c9a23a
 const DARK = [33, 33, 33]          // near-black for body text
@@ -7,7 +8,8 @@ const LIGHT_GRAY = [220, 220, 220] // dividers
 const WHITE = [255, 255, 255]
 
 // TD logo as base64 PNG for PDF watermark
-const TD_LOGO_B64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEQAAAA8CAYAAADfYhweAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAPeSURBVHgB7ZpbaBNZGMf/M0lM0yZtbW1t1WLqbtdddYuLUnZhXdbt4gW8PAiKDyL44IMPIuqLiHhFEATxAj6JN3xRFAXxiljxChVRUKu00UJtjbWtTdI2aSczxzNFQQ7MOVNTSno8PxgG8n0zhB9zzvnmO6PVXpweISBhKEB06z+vfdIAHQpYJjQlgkEJYVBCGJQQBiWEQQlhUEIYlBAGJYTBywv69DHUmIZshNAjTQxYxMJwwhWyveYAphb+juyEwLDSiPV/QrSvBS+7nuFZRz2a4g0ZSeIKCfkKMdZfjGymNFCGqsLfMGfCPBBC0Nj9AuciJ3Cn7RoVQzBUpJpDNE3DL2NnYOvs/dhZcxjjAuMxVKSdVP8qm4tDc86gIlg5pOu4Qkw6RtOW4eqwiMm71WDc7b0cDzqJErgfBqWBcmyZtQ9BX8j1NVrtxWlv6TmMDFk4eRk2zdzlGN9dv5GO6+vIFI/uQUlOGWYUz8Li8HJML/pDeM3p10dx8tURYZ5JrLlejDAhXwHK8yoc4+97W5AwYo5xk3Zxon2tg8fdthtYNXUdVlStocWBc3mwJLwCl9+eRWd/O0SMuJCF4WVYO22TY3zP482oa70KN/SbKRxvOIgSOnnWTlrkmFfgL8K/E+fj/JvTwnuO+knVpHPTCTocetMJbt4/Exdwn6KvSLHK2MOs/sN9bk5lfhWK/CUQIc2y+yhax43nevMwOf9niJBGyOvu58Klfwp9SkRII6SrvwOJgTg3pzxvEkRII6TXSCDOWa5t7CVfhFSle4/RzY37PQGIkEpI0khy4z5dXHZJJcQgaW5c1zwQ8UO1EH+YwuwrXsFWtZtOmlRC/J5cbtwEv06xkUpIcAy/72GYAxAhjRCf7qONoHxuTl+6ByKkEVIRmkLnkBxuTnO8CSKkEVJNW4oiIvFXwhxphPxd/j833plqR7T3HURIIaS6eDZ+KviVm/Pk40PatedXsjajXoiXri7rq7cJ8269uwI3jGohOfTtde+fRxEWdMJaet7QJ+QB3DDiXXcRQW8QhbRL7oSH/uWSQCmqx9VgaeVKjM+dABHHGg653gDPOiEbZu7ABuzAcFHXeg332m66zpf6bfdF11Pse7JlSNdIK+RmyyVsvLcahiV+f/mWrBsymdBBa42H0du4EDlFJ9JmfA/DJiQ20EVL40bHeM+XnTX7ix9enhss+hqfSqcGm8qdyQ9oTkTQGHuJplgD/T2Z0b2HbfdfBuzdf/UVIoMSwqCEMCghDEoIgxLCoIQwKCEMSgiDEsKghDB4QYhBN8VTUEDXNeszRHR3nfb4ZSEAAAAASUVORK5CYII='
+// Logo imported via Vite — no base64 embedding needed
+const TD_LOGO_B64 = null // replaced by OPTIMA_LOGO_URL below
 
 function formatCurrency(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -76,7 +78,7 @@ export function generateTransferPDF(txn) {
   doc.text(formatDate(txn.date), pageW - margin, 24, { align: 'right' })
 
   // Thin accent line at bottom of header
-  doc.setFillColor(0, 100, 0)
+  doc.setFillColor(...BRAND_GOLD)
   doc.rect(0, 40, pageW, 1.5, 'F')
 
   // ── Reference chip ────────────────────────────────────
@@ -152,10 +154,10 @@ export function generateTransferPDF(txn) {
 
   // ── Status badge ──────────────────────────────────────
   y += 8
-  doc.setFillColor(236, 253, 245)
+  doc.setFillColor(253, 248, 236)
   doc.roundedRect(margin, y - 4, 56, 12, 3, 3, 'F')
   doc.setFontSize(9)
-  doc.setTextColor(22, 163, 74)
+  doc.setTextColor(...BRAND_GOLD)
   doc.setFont('helvetica', 'bold')
   doc.text('\u2713  Status: Completed', margin + 5, y + 3)
 
@@ -226,9 +228,9 @@ export function generateTransferPDF(txn) {
   doc.text('4140 Church Road, Mount Laurel, N.J., 08054', margin + 32, footerY + 24)
 
   doc.setFont('helvetica', 'bold')
-  doc.text('Canadian Corporate Office:', margin, footerY + 29)
+  doc.text('Customer Support:', margin, footerY + 29)
   doc.setFont('helvetica', 'normal')
-  doc.text('P.O. Box 1, Toronto-Dominion Centre, Toronto, Ontario M5K 1A2', margin + 38, footerY + 29)
+  doc.text('1-800-555-0199  |  support@optimacreditunion.com', margin + 26, footerY + 29)
 
   // ══════════════════════════════════════════════════════════
   // WATERMARK — drawn LAST so GState opacity issue doesn't
@@ -240,7 +242,7 @@ export function generateTransferPDF(txn) {
   const logoY = (pageH - logoH) / 2 - 10
   try {
     doc.setGState(new doc.GState({ opacity: 0.07 }))
-    doc.addImage(TD_LOGO_B64, 'PNG', logoX, logoY, logoW, logoH)
+    doc.addImage(optimaLogoUrl, 'PNG', logoX, logoY, logoW, logoH)
     // No need to reset — watermark is the last thing drawn
   } catch (_) {
     // GState not supported in this build — skip watermark silently
