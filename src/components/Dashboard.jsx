@@ -245,7 +245,7 @@ export default function Dashboard({ profile, onLogout }) {
   const [hasUnread, setHasUnread] = useState(false)
   const [emailToast, setEmailToast] = useState(null)
   const [otpToast, setOtpToast] = useState(null)
-  const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'dark')
+  const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'light')
   const [adToast, setAdToast] = useState(null)
   const [showLogoMenu, setShowLogoMenu] = useState(false)
   const [biometricRegistered, setBiometricRegistered] = useState(() => isBiometricRegistered())
@@ -1126,7 +1126,7 @@ export default function Dashboard({ profile, onLogout }) {
                     <div className="db-txn-amounts">
                       <span 
                         className={`db-txn-amount font-mono ${isCredit ? 'db-txn-amount--credit' : 'db-txn-amount--debit'}`}
-                        style={{ color: isCredit ? '#22c55e' : '#ef4444' }}
+                        style={{ color: isCredit ? '#c9a23a' : '#ef4444' }}
                       >
                         {isCredit ? '+' : '-'}${displayAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </span>

@@ -102,7 +102,7 @@ export default function DepositOverlay({ balance, onClose, onBalanceUpdate }) {
           <h2 className="tf-receipt-title">Deposit Received</h2>
           <div className="tf-receipt-rows">
             <div className="tf-receipt-row"><span>Reference</span><strong>{receipt.ref}</strong></div>
-            <div className="tf-receipt-row"><span>Amount</span><strong style={{ color: '#16a34a' }}>+${formatCurrency(receipt.amount)}</strong></div>
+            <div className="tf-receipt-row"><span>Amount</span><strong style={{ color: '#c9a23a' }}>+${formatCurrency(receipt.amount)}</strong></div>
             <div className="tf-receipt-row"><span>New Balance</span><strong>${formatCurrency(receipt.newBalance)}</strong></div>
           </div>
           <button className="tf-btn tf-btn--primary" onClick={onClose}>Done</button>
