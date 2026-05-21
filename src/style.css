@@ -6565,8 +6565,8 @@ button:active {
 /* Glass cards in light mode */
 .db--light .db-balance-card,
 .db--light .db-account-card {
-  background: rgba(255,255,255,.75);
-  border-color: rgba(201,162,58,.12);
+  background: #ffffff;
+  border-color: rgba(201,162,58,.18);
   box-shadow: 0 4px 20px rgba(0,0,0,.06);
 }
 .db--light .db-balance-card *,
@@ -6642,6 +6642,12 @@ button:active {
 }
 
 /* Weekly spending chart */
+.db--light .wsc-glass {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: rgba(201,162,58,.20);
+}
 .db--light .wsc-card {
   background: #ffffff;
   border: 1px solid rgba(201,162,58,.20);
