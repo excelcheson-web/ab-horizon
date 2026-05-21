@@ -571,7 +571,7 @@ export default function AdminApp() {
       {/* ── Sidebar Navigation ─────────────────────────── */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-logo">
-          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #1a56db, #0a2540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #c9a23a, #0d1b4b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <polygon points="12,3 22,8 2,8" fill="rgba(255,255,255,0.9)" />
               <rect x="4"  y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.85)" />

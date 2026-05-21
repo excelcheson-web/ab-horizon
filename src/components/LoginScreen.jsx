@@ -253,11 +253,11 @@ export default function LoginScreen({ onLogin, onRegister }) {
   /* ── Loading screen ─────────────────────────────────── */
   if (loading) {
     return (
-      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#071829,#0a2540)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1.5rem' }}>
+      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#080f2a,#0d1b4b)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1.5rem' }}>
         <TDLogo size={72}/>
         <p style={{ color:'#fff', fontWeight:700, fontSize:'1.2rem', margin:0, letterSpacing:'0.04em' }}>Optima Credit Union</p>
         <div style={{ width:220, height:3, background:'rgba(255,255,255,0.12)', borderRadius:99, overflow:'hidden' }}>
-          <div style={{ height:'100%', background:'linear-gradient(90deg,#1a56db,#38bdf8)', borderRadius:99, animation:'lp-bar 5s linear forwards' }}/>
+          <div style={{ height:'100%', background:'linear-gradient(90deg,#c9a23a,#e5c96e)', borderRadius:99, animation:'lp-bar 5s linear forwards' }}/>
         </div>
         <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.8rem', margin:0 }}>{loadingMsg}</p>
         <style>{`@keyframes lp-bar{from{width:5%}to{width:100%}}`}</style>

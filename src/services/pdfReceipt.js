@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 
-const TD_GREEN = [0, 138, 0]       // #008a00
+const BRAND_GOLD = [201, 162, 58]    // #c9a23a
 const DARK = [33, 33, 33]          // near-black for body text
 const GRAY = [100, 100, 100]       // medium gray for labels
 const LIGHT_GRAY = [220, 220, 220] // dividers
@@ -50,7 +50,7 @@ export function generateTransferPDF(txn) {
   // ══════════════════════════════════════════════════════════
 
   // ── Green header bar ──────────────────────────────────
-  doc.setFillColor(...TD_GREEN)
+  doc.setFillColor(...BRAND_GOLD)
   doc.rect(0, 0, pageW, 40, 'F')
 
   // Bank name — bold, top-left
@@ -96,10 +96,10 @@ export function generateTransferPDF(txn) {
   // ── Section: Transfer Details ─────────────────────────
   y += 26
 
-  doc.setFillColor(...TD_GREEN)
+  doc.setFillColor(...BRAND_GOLD)
   doc.rect(margin, y, 3, 8, 'F')
   doc.setFontSize(11)
-  doc.setTextColor(...TD_GREEN)
+  doc.setTextColor(...BRAND_GOLD)
   doc.setFont('helvetica', 'bold')
   doc.text('Transfer Details', margin + 7, y + 6)
 
@@ -193,7 +193,7 @@ export function generateTransferPDF(txn) {
   const footerY = pageH - 42
 
   // Green accent line
-  doc.setDrawColor(...TD_GREEN)
+  doc.setDrawColor(...BRAND_GOLD)
   doc.setLineWidth(0.6)
   doc.line(margin, footerY, pageW - margin, footerY)
 

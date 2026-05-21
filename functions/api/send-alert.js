@@ -3,7 +3,7 @@
 
 export async function onRequestPost({ request, env }) {
   const RESEND_API_KEY = env.RESEND_API_KEY
-  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimacreditunion.com.com>'
+  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimacreditunion.com>'
 
   if (!RESEND_API_KEY) {
     return json({ error: 'Email service not configured' }, 500)
@@ -45,17 +45,10 @@ export async function onRequestPost({ request, env }) {
   const html = `
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#ffffff;">
       <div style="text-align:center;margin-bottom:28px;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#1a56db,#0a2540);margin-bottom:12px;">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <polygon points="12,3 22,8 2,8" fill="rgba(255,255,255,0.95)"/>
-            <rect x="4" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)"/>
-            <rect x="9" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)"/>
-            <rect x="14" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)"/>
-            <rect x="19" y="9" width="2.5" height="9" rx="0.5" fill="rgba(255,255,255,0.9)"/>
-            <rect x="2" y="18" width="20" height="2.5" rx="0.5" fill="rgba(255,255,255,0.95)"/>
-          </svg>
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:#0d1b4b;border:1px solid #c9a23a;margin-bottom:12px;">
+          <span style="font-size:22px;font-weight:900;color:#e5c96e;letter-spacing:-0.03em;font-family:Georgia,serif;">O</span>
         </div>
-        <h1 style="font-size:20px;font-weight:700;color:#0a2540;margin:0;">Optima Credit Union</h1>
+        <h1 style="font-size:20px;font-weight:700;color:#0d1b4b;margin:0;">Optima Credit Union</h1>
         <p style="font-size:13px;color:#6b7280;margin:4px 0 0;">Transaction Alert</p>
       </div>
 
@@ -71,7 +64,7 @@ export async function onRequestPost({ request, env }) {
         <table style="width:100%;font-size:14px;color:#374151;border-collapse:collapse;">
           <tr>
             <td style="text-align:left;padding:7px 0;font-weight:600;color:#6b7280;">New Balance</td>
-            <td style="text-align:right;padding:7px 0;font-family:monospace;font-weight:700;color:#0a2540;">$${newBalance}</td>
+            <td style="text-align:right;padding:7px 0;font-family:monospace;font-weight:700;color:#0d1b4b;">$${newBalance}</td>
           </tr>
           <tr>
             <td style="text-align:left;padding:7px 0;font-weight:600;color:#6b7280;">Date & Time</td>
@@ -84,8 +77,8 @@ export async function onRequestPost({ request, env }) {
         </table>
       </div>
 
-      <div style="margin-top:20px;padding:14px 16px;background:#eff6ff;border-radius:10px;border-left:3px solid #1a56db;">
-        <p style="font-size:12px;color:#1e40af;margin:0;">
+      <div style="margin-top:20px;padding:14px 16px;background:#fdf8ec;border-radius:10px;border-left:3px solid #c9a23a;">
+        <p style="font-size:12px;color:#7a5c10;margin:0;">
           If you did not authorize this transaction, please contact our fraud team immediately at
           <strong>1-800-555-0199</strong> or freeze your card from the app.
         </p>

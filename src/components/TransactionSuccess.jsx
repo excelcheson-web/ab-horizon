@@ -179,7 +179,7 @@ export default function TransactionSuccess({
           <div className="txn-row">
             <span className="txn-label" style={LABEL_STYLE}>Status</span>
             <span className="txn-value">
-              <span className="txn-status-badge" style={{ color: '#008a00' }}>● Completed</span>
+              <span className="txn-status-badge" style={{ color: '#c9a23a' }}>● Completed</span>
             </span>
           </div>
           <div className="txn-divider" />
@@ -187,14 +187,14 @@ export default function TransactionSuccess({
           {/* Type-specific note */}
           {isIntl ? (
             <div className="txn-row">
-              <span className="txn-label" style={{ color: '#008a00', fontWeight: 600 }}>Note</span>
+              <span className="txn-label" style={{ color: '#c9a23a', fontWeight: 600 }}>Note</span>
               <span className="txn-value" style={{ color: BLACK, fontSize: '0.82rem' }}>
                 International wire transfers may take 1–3 business days to arrive and may incur additional fees.
               </span>
             </div>
           ) : (
             <div className="txn-row">
-              <span className="txn-label" style={{ color: '#008a00', fontWeight: 600 }}>Note</span>
+              <span className="txn-label" style={{ color: '#c9a23a', fontWeight: 600 }}>Note</span>
               <span className="txn-value" style={{ color: BLACK, fontSize: '0.82rem' }}>
                 Local transfers are processed instantly and available in the recipient's account right away.
               </span>
