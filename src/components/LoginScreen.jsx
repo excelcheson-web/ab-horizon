@@ -254,8 +254,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
   if (loading) {
     return (
       <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#080f2a,#0d1b4b)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'1.5rem' }}>
-        <TDLogo size={72}/>
-        <p style={{ color:'#fff', fontWeight:700, fontSize:'1.2rem', margin:0, letterSpacing:'0.04em' }}>Optima Credit Union</p>
+        <TDLogo size={56} full />
         <div style={{ width:220, height:3, background:'rgba(255,255,255,0.12)', borderRadius:99, overflow:'hidden' }}>
           <div style={{ height:'100%', background:'linear-gradient(90deg,#c9a23a,#e5c96e)', borderRadius:99, animation:'lp-bar 5s linear forwards' }}/>
         </div>
@@ -273,8 +272,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
       <header className={`hp-nav ${scrolled ? 'hp-nav--solid' : ''}`}>
         <div className="hp-nav-inner">
           <div className="hp-nav-brand">
-            <TDLogo size={36}/>
-            <span className="hp-nav-name">Optima Credit Union</span>
+            <TDLogo size={40} full />
           </div>
 
           <nav className="hp-nav-links">
@@ -508,8 +506,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
         <div className="hp-footer-inner">
           <div className="hp-footer-top">
             <div className="hp-footer-brand">
-              <TDLogo size={40}/>
-              <span className="hp-footer-name">Optima Credit Union</span>
+              <TDLogo size={48} full />
             </div>
             <p className="hp-footer-tagline">Secure digital banking for everyone, everywhere.</p>
           </div>
@@ -553,7 +550,7 @@ export default function LoginScreen({ onLogin, onRegister }) {
             </button>
 
             <div className="hp-modal-head">
-              <TDLogo size={44}/>
+              <TDLogo size={44} full />
               <div>
                 <h2 className="hp-modal-title">Sign In</h2>
                 <p className="hp-modal-sub">Access your account securely</p>
