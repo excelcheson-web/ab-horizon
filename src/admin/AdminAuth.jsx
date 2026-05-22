@@ -190,9 +190,15 @@ function SetupScreen({ onDone }) {
       onDone()
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        // Account already exists — flag setup as done and go to login
-        localStorage.setItem(SETUP_KEY, 'true')
-        setError('Account already exists. Please sign in on the login screen.')
+        // Account already exists (main app uses the same email).
+        // Try signing in with the provided password directly.
+        try {
+          await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pw)
+          localStorage.setItem(SETUP_KEY, 'true')
+          onDone()
+        } catch {
+          setError('This account already exists. Enter your existing password to continue.')
+        }
       } else {
         setError(err.message || 'Setup failed. Try again.')
       }
@@ -203,18 +209,18 @@ function SetupScreen({ onDone }) {
 
   return (
     <AuthCard>
-      <h2 style={{ margin:'0 0 4px', fontSize:19, fontWeight:700, color:'#fff' }}>Create Admin Account</h2>
+      <h2 style={{ margin:'0 0 4px', fontSize:19, fontWeight:700, color:'#fff' }}>Admin Access Setup</h2>
       <p style={{ margin:'0 0 6px', fontSize:13, color:'rgba(255,255,255,0.45)' }}>
         Admin email: <strong style={{ color:'#e5c96e' }}>{ADMIN_EMAIL}</strong>
       </p>
       <p style={{ margin:'0 0 22px', fontSize:12, color:'rgba(255,255,255,0.30)' }}>
-        This setup runs only once. Set a strong password.
+        Enter your existing account password to activate admin access.
       </p>
       <form onSubmit={handleSubmit}>
-        <Field label="Password"        type="password" value={pw}  onChange={setPw}  placeholder="Min 8 characters" autoFocus />
+        <Field label="Password"        type="password" value={pw}  onChange={setPw}  placeholder="Your account password" autoFocus />
         <Field label="Confirm Password" type="password" value={pw2} onChange={setPw2} placeholder="Repeat password" />
         <ErrorMsg msg={error} />
-        <PrimaryBtn loading={loading}>Create Admin Account</PrimaryBtn>
+        <PrimaryBtn loading={loading}>Activate Admin Access</PrimaryBtn>
       </form>
     </AuthCard>
   )
