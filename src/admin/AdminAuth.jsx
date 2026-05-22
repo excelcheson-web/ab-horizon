@@ -18,6 +18,11 @@ const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'karladelbert83@gmail.co
 const SETUP_KEY   = 'admin_setup_complete'
 const REVOKED_KEY = 'admin_access_revoked'
 
+// sessionStorage key — cleared when tab/browser closes.
+// Firebase auth persists across tabs (main app shares the session),
+// so we require a separate explicit admin sign-in per browser session.
+const SESSION_KEY = 'admin_session_verified'
+
 /* ── Shared field ──────────────────────────────────────────── */
 function Field({ label, type = 'text', value, onChange, placeholder, autoFocus }) {
   return (
@@ -108,38 +113,44 @@ export default function AdminAuth() {
   // status: loading | setup | login | authed | revoked
 
   useEffect(() => {
-    // If access was revoked via the sidebar button, show revoked screen immediately
+    // Revoked takes priority
     if (localStorage.getItem(REVOKED_KEY) === 'true') {
       setStatus('revoked')
       return
     }
 
+    // Always require explicit password entry per browser session.
+    // Even if Firebase has a persistent session from the main app,
+    // the admin panel needs its own sessionStorage token.
+    const sessionVerified = sessionStorage.getItem(SESSION_KEY) === 'true'
+    const setupDone       = localStorage.getItem(SETUP_KEY) === 'true'
+
+    if (!sessionVerified) {
+      // No admin session this tab — go to setup or login
+      setStatus(setupDone ? 'login' : 'setup')
+      return
+    }
+
+    // Session token present — verify the Firebase user still matches
     const unsub = onAuthStateChanged(auth, user => {
-      if (!user) {
-        // No session — decide between setup and login
-        const setupDone = localStorage.getItem(SETUP_KEY) === 'true'
-        setStatus(setupDone ? 'login' : 'setup')
-      } else if (user.email === ADMIN_EMAIL) {
+      if (user && user.email === ADMIN_EMAIL) {
         setStatus('authed')
       } else {
-        // Someone else's Firebase session — sign them out
-        signOut(auth).then(() => {
-          const setupDone = localStorage.getItem(SETUP_KEY) === 'true'
-          setStatus(setupDone ? 'login' : 'setup')
-        })
+        sessionStorage.removeItem(SESSION_KEY)
+        setStatus(setupDone ? 'login' : 'setup')
       }
     })
     return () => unsub()
   }, [])
 
   const handleLogout = async () => {
-    await signOut(auth).catch(() => {})
+    sessionStorage.removeItem(SESSION_KEY)
     setStatus('login')
   }
 
   const handleRevoke = async () => {
     if (!window.confirm('Revoke admin access? You will need your admin credentials to restore it.')) return
-    await signOut(auth).catch(() => {})
+    sessionStorage.removeItem(SESSION_KEY)
     localStorage.setItem(REVOKED_KEY, 'true')
     setStatus('revoked')
   }
@@ -153,8 +164,8 @@ export default function AdminAuth() {
     </div>
   )
 
-  if (status === 'setup')   return <SetupScreen   onDone={() => { localStorage.setItem(SETUP_KEY,'true'); setStatus('authed') }} />
-  if (status === 'login')   return <LoginScreen   onAuthed={() => setStatus('authed')} onNeedSetup={() => setStatus('setup')} />
+  if (status === 'setup')   return <SetupScreen   onDone={() => { localStorage.setItem(SETUP_KEY,'true'); sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} />
+  if (status === 'login')   return <LoginScreen   onAuthed={() => { sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} onNeedSetup={() => setStatus('setup')} />
   if (status === 'revoked') return <RevokedScreen onRestored={() => { localStorage.removeItem(REVOKED_KEY); setStatus('login') }} />
   return <AdminApp onLogout={handleLogout} onRevoke={handleRevoke} />
 }
