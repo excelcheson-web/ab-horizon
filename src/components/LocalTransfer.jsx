@@ -9,6 +9,43 @@ function getUserUid() {
   try { return JSON.parse(localStorage.getItem('securebank_user') || '{}').uid || '' } catch { return '' }
 }
 
+// Get last N unique recipients for a given transfer type from localStorage
+function getRecentRecipients(type, limit = 6) {
+  try {
+    const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+    const seen = new Set()
+    const result = []
+    for (const t of history) {
+      if (t.type !== type) continue
+      const key = `${t.beneficiary}|${t.accountNumber || t.iban || ''}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        result.push(t)
+      }
+      if (result.length >= limit) break
+    }
+    return result
+  } catch { return [] }
+}
+
+// Get last N transfers for a given type
+function getTransferHistory(type, limit = 8) {
+  try {
+    const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+    return history.filter(t => t.type === type).slice(0, limit)
+  } catch { return [] }
+}
+
+function fmtDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
 function genRef() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let ref = 'TXN-'
@@ -60,9 +97,32 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
   const [pendingTxn, setPendingTxn] = useState(null)
   const otpRefs = useRef([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [recentRecipients] = useState(() => getRecentRecipients('local'))
+  const [txnHistory] = useState(() => getTransferHistory('local'))
 
   const update = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
+    setError('')
+  }
+
+  const fillFromRecipient = (t) => {
+    setForm({
+      beneficiary: t.beneficiary || '',
+      accountNumber: t.accountNumber || '',
+      bankName: t.bankName || '',
+      amount: '',
+    })
+    setError('')
+  }
+
+  const repeatTransfer = (t) => {
+    setForm({
+      beneficiary: t.beneficiary || '',
+      accountNumber: t.accountNumber || '',
+      bankName: t.bankName || '',
+      amount: String(t.amount || ''),
+    })
     setError('')
   }
 
@@ -274,7 +334,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   // ── Form view ──
   return (
     <div className="tf-overlay" onClick={onClose}>
-      <div className="tf-sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="tf-sheet tf-sheet--scrollable" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="tf-header">
           <div className="tf-header-icon tf-header-icon--local"><BoltIcon /></div>
@@ -289,6 +349,22 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
         <div className="tf-bal-chip">
           Available: <strong>${formatCurrency(balance)}</strong>
         </div>
+
+        {/* ── Recent Recipients ── */}
+        {recentRecipients.length > 0 && (
+          <div className="tf-recent-section">
+            <p className="tf-recent-label">Recent Recipients</p>
+            <div className="tf-recent-scroll">
+              {recentRecipients.map((r, i) => (
+                <button key={i} className="tf-recent-card" onClick={() => fillFromRecipient(r)}>
+                  <div className="tf-recent-avatar">{initials(r.beneficiary)}</div>
+                  <span className="tf-recent-name">{r.beneficiary}</span>
+                  <span className="tf-recent-bank">{r.bankName}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <form className="tf-form" onSubmit={handleSubmit}>
           <div className="tf-field">
@@ -315,6 +391,35 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
 
           <button type="submit" className="tf-btn tf-btn--primary">Confirm Transfer</button>
         </form>
+
+        {/* ── Transfer History ── */}
+        {txnHistory.length > 0 && (
+          <div className="tf-history-section">
+            <button className="tf-history-toggle" onClick={() => setShowHistory(p => !p)}>
+              <span>Transfer History</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {showHistory && (
+              <div className="tf-history-list">
+                {txnHistory.map((t, i) => (
+                  <div key={i} className="tf-history-item">
+                    <div className="tf-history-avatar">{initials(t.beneficiary)}</div>
+                    <div className="tf-history-info">
+                      <span className="tf-history-name">{t.beneficiary}</span>
+                      <span className="tf-history-meta">{t.bankName} · {fmtDate(t.date)}</span>
+                    </div>
+                    <div className="tf-history-right">
+                      <span className="tf-history-amt">-${formatCurrency(t.amount)}</span>
+                      <button className="tf-repeat-btn" onClick={() => repeatTransfer(t)}>Repeat</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
