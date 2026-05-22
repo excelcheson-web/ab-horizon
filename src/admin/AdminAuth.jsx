@@ -12,7 +12,7 @@ import AdminApp from './App.jsx'
 // ── Admin identity ─────────────────────────────────────────
 // Change this (or set VITE_ADMIN_EMAIL in .env) to change the
 // authorised admin email. Only this address can access the panel.
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'hello@optimaunion.com'
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'karladelbert83@gmail.com'
 
 // localStorage keys
 const SETUP_KEY   = 'admin_setup_complete'
