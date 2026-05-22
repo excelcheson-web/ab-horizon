@@ -267,7 +267,7 @@ export function generateTransferPDF(txn) {
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MID_GRAY)
-  doc.text('Member FDIC  ·  Equal Housing Lender  ·  1-800-555-0199  ·  support@optimacreditunion.com',
+  doc.text('Member FDIC  ·  Equal Housing Lender  ·  1-800-555-0199  ·  support@optimaunion.com',
     pageW / 2, footerY + 18, { align: 'center' })
   doc.text(`© ${new Date().getFullYear()} Optima Credit Union. All rights reserved. Reference: ${txn.ref}`,
     pageW / 2, footerY + 23, { align: 'center' })

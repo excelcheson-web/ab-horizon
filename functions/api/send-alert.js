@@ -3,7 +3,7 @@
 
 export async function onRequestPost({ request, env }) {
   const RESEND_API_KEY = env.RESEND_API_KEY
-  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimacreditunion.com>'
+  const FROM_EMAIL     = env.FROM_EMAIL || 'Optima Credit Union <noreply@optimaunion.com>'
 
   if (!RESEND_API_KEY) {
     return json({ error: 'Email service not configured' }, 500)
@@ -102,7 +102,7 @@ export async function onRequestPost({ request, env }) {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: [email],
-        reply_to: env.REPLY_TO_EMAIL || 'support@optimacreditunion.com',
+        reply_to: env.REPLY_TO_EMAIL || 'support@optimaunion.com',
         subject,
         html,
         text,

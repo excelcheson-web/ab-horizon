@@ -30,7 +30,7 @@ function parseBalance(str) {
 // ─────────────────────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────────────────────
-export default function AdminApp() {
+export default function AdminApp({ onLogout, onRevoke }) {
   // ── User Selection State ───────────────────────────────────
   const [allUsers, setAllUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
@@ -650,6 +650,30 @@ export default function AdminApp() {
             Synced: {lastSync}
           </div>
         )}
+
+        {/* ── Session controls ──────────────────────── */}
+        <div style={{ padding: '12px 12px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {onLogout && (
+            <button onClick={onLogout} style={{
+              width: '100%', padding: '9px 12px', borderRadius: 8,
+              border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)',
+              color: 'rgba(255,255,255,0.70)', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              ⎋ Sign Out
+            </button>
+          )}
+          {onRevoke && (
+            <button onClick={onRevoke} style={{
+              width: '100%', padding: '9px 12px', borderRadius: 8,
+              border: '1px solid rgba(220,38,38,0.30)', background: 'rgba(220,38,38,0.07)',
+              color: 'rgba(248,113,113,0.90)', fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', textAlign: 'left',
+            }}>
+              🔒 Revoke Access
+            </button>
+          )}
+        </div>
       </aside>
 
       {/* ── Main Content ──────────────────────────────── */}
