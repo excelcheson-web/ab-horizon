@@ -67,6 +67,7 @@ export default function DepositOverlay({ balance, onClose, onBalanceUpdate }) {
       saveTransaction(txn)
 
       localStorage.setItem('bank_balance', String(newBalance))
+      localStorage.setItem('balance_local_update_ts', String(Date.now()))
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'bank_balance',
         newValue: String(newBalance),

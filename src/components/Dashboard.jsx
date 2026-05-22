@@ -342,17 +342,24 @@ export default function Dashboard({ profile, onLogout }) {
           const firestoreBal = parseFloat(data.balance ?? 0)
           const firestoreVault = parseFloat(data.savingsVault ?? data.savings_vault ?? 0)
 
-          // Use Firestore balance only if:
-          //  a) local is zero/missing (first login, cleared storage), or
-          //  b) Firestore is HIGHER — means admin credited the account
-          // Never override a locally-decremented balance with a stale Firestore value.
+          // Decide which balance to trust:
+          // • Local empty/zero → always use Firestore (first login / cleared data)
+          // • Local was updated within the last 90s → keep local (transfer just happened,
+          //   Firestore sync is still in its 30s debounce window — don't overwrite)
+          // • Local is stale (>90s old) AND Firestore is higher → admin credited account
           if (!isNaN(firestoreBal)) {
             const localEmpty = !localBal || localBal === 0
-            const adminCredit = firestoreBal > localBal
-            if (localEmpty || adminCredit) {
+            const localTs = parseInt(localStorage.getItem('balance_local_update_ts') || '0')
+            const localIsRecent = Date.now() - localTs < 90000 // 90 seconds
+            if (localEmpty) {
+              setBankBalance(firestoreBal)
+              localStorage.setItem('bank_balance', String(firestoreBal))
+            } else if (!localIsRecent && firestoreBal > localBal) {
+              // Stale local + Firestore higher = admin credited the account
               setBankBalance(firestoreBal)
               localStorage.setItem('bank_balance', String(firestoreBal))
             }
+            // else: local is recent — keep it, Firestore is catching up
           }
           if (firestoreVault !== localVault && !isNaN(firestoreVault)) {
             setSavingsVault(firestoreVault)
@@ -373,6 +380,7 @@ export default function Dashboard({ profile, onLogout }) {
   const handleBalanceUpdate = useCallback((newBalance) => {
     setBankBalance(newBalance)
     localStorage.setItem('bank_balance', String(newBalance))
+    localStorage.setItem('balance_local_update_ts', String(Date.now()))
     // Firestore write is now handled by adminService.js with debouncing
     const uid = profile?.uid || profile?.id
     if (uid) {

@@ -244,6 +244,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
 
       // Update balance
       localStorage.setItem('bank_balance', String(txn.balanceAfter))
+      localStorage.setItem('balance_local_update_ts', String(Date.now()))
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'bank_balance',
         newValue: String(txn.balanceAfter),

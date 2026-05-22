@@ -262,6 +262,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       saveTransaction(txn)
 
       localStorage.setItem('bank_balance', String(txn.balanceAfter))
+      localStorage.setItem('balance_local_update_ts', String(Date.now()))
       window.dispatchEvent(new StorageEvent('storage', {
         key: 'bank_balance',
         newValue: String(txn.balanceAfter),
