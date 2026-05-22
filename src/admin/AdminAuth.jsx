@@ -6,29 +6,37 @@ import {
   signOut,
   sendPasswordResetEmail,
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
-import { auth, db } from '../services/firebaseClient'
+import { auth } from '../services/firebaseClient'
 import AdminApp from './App.jsx'
 
-// Firestore path that stores the single admin account config
-const CFG_REF = () => doc(db, 'system', 'admin_config')
+// ── Admin identity ─────────────────────────────────────────
+// Change this (or set VITE_ADMIN_EMAIL in .env) to change the
+// authorised admin email. Only this address can access the panel.
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'hello@optimaunion.com'
 
-/* ── Tiny shared field component ──────────────────────────── */
+// localStorage keys
+const SETUP_KEY   = 'admin_setup_complete'
+const REVOKED_KEY = 'admin_access_revoked'
+
+/* ── Shared field ──────────────────────────────────────────── */
 function Field({ label, type = 'text', value, onChange, placeholder, autoFocus }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.55)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+      <label style={{
+        display: 'block', fontSize: 11, fontWeight: 700,
+        color: 'rgba(255,255,255,0.50)', marginBottom: 6,
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+      }}>
         {label}
       </label>
       <input
-        type={type}
-        value={value}
+        type={type} value={value} autoFocus={autoFocus}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        autoFocus={autoFocus}
         style={{
           width: '100%', padding: '12px 14px', boxSizing: 'border-box',
-          background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1.5px solid rgba(255,255,255,0.14)',
           borderRadius: 10, color: '#fff', fontSize: 15, outline: 'none',
         }}
       />
@@ -36,24 +44,25 @@ function Field({ label, type = 'text', value, onChange, placeholder, autoFocus }
   )
 }
 
-/* ── Shared card wrapper ───────────────────────────────────── */
+/* ── Shared card ────────────────────────────────────────────── */
 function AuthCard({ children }) {
   return (
     <div style={{
-      minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100dvh', display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
       background: 'linear-gradient(160deg,#060f1c 0%,#0b1f4d 55%,#0d1b4b 100%)',
       padding: 20,
     }}>
       <div style={{
         width: '100%', maxWidth: 400,
-        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,162,58,0.20)',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(201,162,58,0.22)',
         borderRadius: 20, padding: '36px 32px',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.50)',
       }}>
-        {/* Logo badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 12,
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
             background: '#0d1b4b', border: '1.5px solid #c9a23a',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -61,7 +70,7 @@ function AuthCard({ children }) {
           </div>
           <div>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#fff' }}>Optima Credit Union</p>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.40)' }}>Admin Operations Panel</p>
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.38)' }}>Admin Operations Panel</p>
           </div>
         </div>
         {children}
@@ -70,121 +79,111 @@ function AuthCard({ children }) {
   )
 }
 
-function SubmitBtn({ loading, children }) {
+function PrimaryBtn({ loading, children, onClick, type = 'submit', danger }) {
   return (
-    <button type="submit" disabled={loading} style={{
+    <button type={type} onClick={onClick} disabled={loading} style={{
       width: '100%', padding: 13, border: 'none', borderRadius: 10, marginTop: 8,
-      background: loading ? 'rgba(201,162,58,0.4)' : 'linear-gradient(135deg,#0d1b4b,#c9a23a)',
-      color: '#fff', fontSize: 15, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer',
+      background: loading
+        ? 'rgba(201,162,58,0.35)'
+        : danger
+          ? 'linear-gradient(135deg,#991b1b,#7f1d1d)'
+          : 'linear-gradient(135deg,#0d1b4b,#c9a23a)',
+      color: '#fff', fontSize: 15, fontWeight: 700,
+      cursor: loading ? 'not-allowed' : 'pointer', transition: 'opacity 0.15s',
     }}>
       {loading ? 'Please wait…' : children}
     </button>
   )
 }
 
+function ErrorMsg({ msg }) {
+  return msg ? <p style={{ color:'#f87171', fontSize:13, margin:'0 0 14px', lineHeight:1.5 }}>{msg}</p> : null
+}
+
 /* ══════════════════════════════════════════════════════════
    MAIN AUTH GATE
    ══════════════════════════════════════════════════════════ */
 export default function AdminAuth() {
+  const [status, setStatus] = useState('loading')
   // status: loading | setup | login | authed | revoked
-  const [status, setStatus]       = useState('loading')
-  const [adminEmail, setAdminEmail] = useState('')
-  const [currentUser, setCurrentUser] = useState(null)
-  const [error, setError]         = useState('')
 
   useEffect(() => {
-    let unsubAuth
-    const init = async () => {
-      try {
-        const snap = await getDoc(CFG_REF())
-        if (!snap.exists() || !snap.data().setupComplete) {
-          setStatus('setup')
-          return
-        }
-        const cfg = snap.data()
-        if (cfg.isActive === false) {
-          setStatus('revoked')
-          setAdminEmail(cfg.email || '')
-          return
-        }
-        setAdminEmail(cfg.email)
-        unsubAuth = onAuthStateChanged(auth, user => {
-          if (user && user.email === cfg.email) {
-            setCurrentUser(user)
-            setStatus('authed')
-          } else {
-            if (user) signOut(auth)
-            setStatus('login')
-          }
-        })
-      } catch {
-        setStatus('login')
-      }
+    // If access was revoked via the sidebar button, show revoked screen immediately
+    if (localStorage.getItem(REVOKED_KEY) === 'true') {
+      setStatus('revoked')
+      return
     }
-    init()
-    return () => { if (unsubAuth) unsubAuth() }
+
+    const unsub = onAuthStateChanged(auth, user => {
+      if (!user) {
+        // No session — decide between setup and login
+        const setupDone = localStorage.getItem(SETUP_KEY) === 'true'
+        setStatus(setupDone ? 'login' : 'setup')
+      } else if (user.email === ADMIN_EMAIL) {
+        setStatus('authed')
+      } else {
+        // Someone else's Firebase session — sign them out
+        signOut(auth).then(() => {
+          const setupDone = localStorage.getItem(SETUP_KEY) === 'true'
+          setStatus(setupDone ? 'login' : 'setup')
+        })
+      }
+    })
+    return () => unsub()
   }, [])
 
   const handleLogout = async () => {
     await signOut(auth).catch(() => {})
-    setCurrentUser(null)
     setStatus('login')
   }
 
   const handleRevoke = async () => {
-    if (!window.confirm('Revoke admin access? You will need to use the original email to restore it.')) return
-    try {
-      await updateDoc(CFG_REF(), { isActive: false })
-      await signOut(auth)
-      setStatus('revoked')
-    } catch (e) {
-      setError('Failed to revoke: ' + e.message)
-    }
+    if (!window.confirm('Revoke admin access? You will need your admin credentials to restore it.')) return
+    await signOut(auth).catch(() => {})
+    localStorage.setItem(REVOKED_KEY, 'true')
+    setStatus('revoked')
   }
 
   if (status === 'loading') return (
-    <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center', background:'#060f1c', color:'rgba(255,255,255,0.5)', fontSize:14 }}>
+    <div style={{
+      minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#060f1c', color: 'rgba(255,255,255,0.40)', fontSize: 14,
+    }}>
       Authenticating…
     </div>
   )
 
-  if (status === 'setup')   return <SetupScreen   onDone={(email) => { setAdminEmail(email); setStatus('authed') }} />
-  if (status === 'login')   return <LoginScreen   adminEmail={adminEmail} onAuthed={u => { setCurrentUser(u); setStatus('authed') }} />
-  if (status === 'revoked') return <RevokedScreen adminEmail={adminEmail} onRestored={() => setStatus('login')} />
-  return <AdminApp onLogout={handleLogout} onRevoke={handleRevoke} error={error} />
+  if (status === 'setup')   return <SetupScreen   onDone={() => { localStorage.setItem(SETUP_KEY,'true'); setStatus('authed') }} />
+  if (status === 'login')   return <LoginScreen   onAuthed={() => setStatus('authed')} onNeedSetup={() => setStatus('setup')} />
+  if (status === 'revoked') return <RevokedScreen onRestored={() => { localStorage.removeItem(REVOKED_KEY); setStatus('login') }} />
+  return <AdminApp onLogout={handleLogout} onRevoke={handleRevoke} />
 }
 
 /* ══════════════════════════════════════════════════════════
-   FIRST-TIME SETUP (runs once, locked forever after)
+   SETUP — runs the first time; fails if account already exists
    ══════════════════════════════════════════════════════════ */
 function SetupScreen({ onDone }) {
-  const [email, setEmail]   = useState('')
-  const [pw, setPw]         = useState('')
-  const [pw2, setPw2]       = useState('')
+  const [pw, setPw]   = useState('')
+  const [pw2, setPw2] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error, setError]     = useState('')
 
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
-    if (pw !== pw2)        { setError('Passwords do not match.'); return }
-    if (pw.length < 8)     { setError('Password must be at least 8 characters.'); return }
-    if (!email.includes('@')) { setError('Enter a valid email address.'); return }
+    if (pw !== pw2)    { setError('Passwords do not match.'); return }
+    if (pw.length < 8) { setError('Password must be at least 8 characters.'); return }
     setLoading(true)
     try {
-      await createUserWithEmailAndPassword(auth, email, pw)
-      await setDoc(CFG_REF(), {
-        email,
-        setupComplete: true,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-      })
-      onDone(email)
+      await createUserWithEmailAndPassword(auth, ADMIN_EMAIL, pw)
+      onDone()
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('That email already has a Firebase account. Use the login screen.')
+        // Account already exists — flag setup as done and go to login
+        localStorage.setItem(SETUP_KEY, 'true')
+        setError('Account already exists. Please sign in on the login screen.')
       } else {
-        setError(err.message)
+        setError(err.message || 'Setup failed. Try again.')
       }
     } finally {
       setLoading(false)
@@ -193,29 +192,30 @@ function SetupScreen({ onDone }) {
 
   return (
     <AuthCard>
-      <h2 style={{ margin:'0 0 4px', fontSize:20, fontWeight:700, color:'#fff' }}>Create Admin Account</h2>
-      <p style={{ margin:'0 0 24px', fontSize:13, color:'rgba(255,255,255,0.45)' }}>
-        This can only be done once. The email you choose becomes the permanent admin identity.
+      <h2 style={{ margin:'0 0 4px', fontSize:19, fontWeight:700, color:'#fff' }}>Create Admin Account</h2>
+      <p style={{ margin:'0 0 6px', fontSize:13, color:'rgba(255,255,255,0.45)' }}>
+        Admin email: <strong style={{ color:'#e5c96e' }}>{ADMIN_EMAIL}</strong>
+      </p>
+      <p style={{ margin:'0 0 22px', fontSize:12, color:'rgba(255,255,255,0.30)' }}>
+        This setup runs only once. Set a strong password.
       </p>
       <form onSubmit={handleSubmit}>
-        <Field label="Admin Email" type="email" value={email} onChange={setEmail} placeholder="hello@optimaunion.com" autoFocus />
-        <Field label="Password"    type="password" value={pw}  onChange={setPw}  placeholder="Min 8 characters" />
+        <Field label="Password"        type="password" value={pw}  onChange={setPw}  placeholder="Min 8 characters" autoFocus />
         <Field label="Confirm Password" type="password" value={pw2} onChange={setPw2} placeholder="Repeat password" />
-        {error && <p style={{ color:'#f87171', fontSize:13, margin:'0 0 12px' }}>{error}</p>}
-        <SubmitBtn loading={loading}>Create Admin Account</SubmitBtn>
+        <ErrorMsg msg={error} />
+        <PrimaryBtn loading={loading}>Create Admin Account</PrimaryBtn>
       </form>
     </AuthCard>
   )
 }
 
 /* ══════════════════════════════════════════════════════════
-   LOGIN SCREEN
+   LOGIN
    ══════════════════════════════════════════════════════════ */
-function LoginScreen({ adminEmail, onAuthed }) {
-  const [email, setEmail]     = useState(adminEmail || '')
-  const [pw, setPw]           = useState('')
+function LoginScreen({ onAuthed, onNeedSetup }) {
+  const [pw, setPw]       = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
+  const [error, setError] = useState('')
   const [resetSent, setResetSent] = useState(false)
 
   const handleSubmit = async e => {
@@ -223,52 +223,58 @@ function LoginScreen({ adminEmail, onAuthed }) {
     setError('')
     setLoading(true)
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, pw)
-      // Double-check the signed-in email matches the configured admin email
-      if (adminEmail && cred.user.email !== adminEmail) {
+      const cred = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pw)
+      if (cred.user.email !== ADMIN_EMAIL) {
         await signOut(auth)
-        setError('Access denied — this email is not the admin account.')
+        setError('Access denied.')
         return
       }
-      onAuthed(cred.user)
+      onAuthed()
     } catch {
-      setError('Incorrect email or password.')
+      setError('Incorrect password. Try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleReset = async () => {
-    if (!email) { setError('Enter your email first, then click Forgot Password.'); return }
     try {
-      await sendPasswordResetEmail(auth, email)
+      await sendPasswordResetEmail(auth, ADMIN_EMAIL)
       setResetSent(true)
     } catch {
-      setError('Could not send reset email. Check the address and try again.')
+      setError('Could not send reset email.')
     }
   }
 
   return (
     <AuthCard>
-      <h2 style={{ margin:'0 0 4px', fontSize:20, fontWeight:700, color:'#fff' }}>Admin Sign In</h2>
-      <p style={{ margin:'0 0 24px', fontSize:13, color:'rgba(255,255,255,0.45)' }}>
-        Restricted access — authorised personnel only.
+      <h2 style={{ margin:'0 0 4px', fontSize:19, fontWeight:700, color:'#fff' }}>Admin Sign In</h2>
+      <p style={{ margin:'0 0 6px', fontSize:13, color:'rgba(255,255,255,0.45)' }}>
+        Signing in as <strong style={{ color:'#e5c96e' }}>{ADMIN_EMAIL}</strong>
+      </p>
+      <p style={{ margin:'0 0 22px', fontSize:12, color:'rgba(255,255,255,0.30)' }}>
+        Restricted — authorised personnel only.
       </p>
       {resetSent ? (
-        <p style={{ color:'#86efac', fontSize:14, textAlign:'center', padding:'16px 0' }}>
-          Password reset email sent. Check your inbox.
+        <p style={{ color:'#86efac', fontSize:14, textAlign:'center', padding:'16px 0', lineHeight:1.6 }}>
+          Password reset email sent to {ADMIN_EMAIL}.<br/>Check your inbox.
         </p>
       ) : (
         <form onSubmit={handleSubmit}>
-          <Field label="Email" type="email" value={email} onChange={setEmail} placeholder="admin@optimaunion.com" autoFocus />
-          <Field label="Password" type="password" value={pw} onChange={setPw} placeholder="••••••••" />
-          {error && <p style={{ color:'#f87171', fontSize:13, margin:'0 0 12px' }}>{error}</p>}
-          <SubmitBtn loading={loading}>Sign In</SubmitBtn>
+          <Field label="Password" type="password" value={pw} onChange={setPw} placeholder="••••••••" autoFocus />
+          <ErrorMsg msg={error} />
+          <PrimaryBtn loading={loading}>Sign In</PrimaryBtn>
           <button type="button" onClick={handleReset} style={{
-            width:'100%', marginTop:12, background:'none', border:'none',
-            color:'rgba(201,162,58,0.80)', fontSize:13, cursor:'pointer', textAlign:'center',
+            width:'100%', marginTop:10, background:'none', border:'none',
+            color:'rgba(201,162,58,0.75)', fontSize:13, cursor:'pointer',
           }}>
             Forgot password?
+          </button>
+          <button type="button" onClick={onNeedSetup} style={{
+            width:'100%', marginTop:6, background:'none', border:'none',
+            color:'rgba(255,255,255,0.25)', fontSize:12, cursor:'pointer',
+          }}>
+            First time? Set up admin account
           </button>
         </form>
       )}
@@ -277,29 +283,23 @@ function LoginScreen({ adminEmail, onAuthed }) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   REVOKED SCREEN — restore access using original email
+   REVOKED — restore with correct password
    ══════════════════════════════════════════════════════════ */
-function RevokedScreen({ adminEmail, onRestored }) {
-  const [email, setEmail]   = useState('')
-  const [pw, setPw]         = useState('')
+function RevokedScreen({ onRestored }) {
+  const [pw, setPw]       = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error, setError] = useState('')
 
   const handleRestore = async e => {
     e.preventDefault()
     setError('')
-    if (email !== adminEmail) {
-      setError('That email does not match the original admin account.')
-      return
-    }
     setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, pw)
-      await updateDoc(CFG_REF(), { isActive: true })
-      await signOut(auth)
+      await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pw)
+      await signOut(auth) // sign out — onRestored sets status back to login
       onRestored()
     } catch {
-      setError('Incorrect credentials.')
+      setError('Incorrect password.')
     } finally {
       setLoading(false)
     }
@@ -307,18 +307,18 @@ function RevokedScreen({ adminEmail, onRestored }) {
 
   return (
     <AuthCard>
-      <div style={{ textAlign:'center', marginBottom:20 }}>
-        <div style={{ fontSize:36, marginBottom:8 }}>🔒</div>
-        <h2 style={{ margin:'0 0 6px', fontSize:18, fontWeight:700, color:'#fff' }}>Admin Access Revoked</h2>
-        <p style={{ margin:0, fontSize:13, color:'rgba(255,255,255,0.45)' }}>
-          Restore access using the original admin email and password.
+      <div style={{ textAlign:'center', marginBottom:22 }}>
+        <div style={{ fontSize:38, marginBottom:10 }}>🔒</div>
+        <h2 style={{ margin:'0 0 8px', fontSize:18, fontWeight:700, color:'#fff' }}>Admin Access Revoked</h2>
+        <p style={{ margin:0, fontSize:13, color:'rgba(255,255,255,0.40)', lineHeight:1.6 }}>
+          Enter the admin password to restore access.<br/>
+          <span style={{ color:'#e5c96e', fontSize:12 }}>{ADMIN_EMAIL}</span>
         </p>
       </div>
       <form onSubmit={handleRestore}>
-        <Field label="Original Admin Email" type="email" value={email} onChange={setEmail} placeholder="admin@optimaunion.com" autoFocus />
-        <Field label="Password" type="password" value={pw} onChange={setPw} placeholder="••••••••" />
-        {error && <p style={{ color:'#f87171', fontSize:13, margin:'0 0 12px' }}>{error}</p>}
-        <SubmitBtn loading={loading}>Restore Access</SubmitBtn>
+        <Field label="Admin Password" type="password" value={pw} onChange={setPw} placeholder="••••••••" autoFocus />
+        <ErrorMsg msg={error} />
+        <PrimaryBtn loading={loading}>Restore Access</PrimaryBtn>
       </form>
     </AuthCard>
   )
