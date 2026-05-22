@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { sendOtp, verifyOtp } from '../services/otpService'
@@ -65,18 +65,6 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const [pendingTxn, setPendingTxn] = useState(null)
   const otpRefs = useRef([])
 
-  // Check suspension immediately when the sheet opens
-  useEffect(() => {
-    try {
-      const a = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
-      if (a.suspended) {
-        window.dispatchEvent(new CustomEvent('show-suspend-modal', {
-          detail: { reason: a.suspendReason || '' }
-        }))
-      }
-    } catch { /* silent */ }
-  }, [])
-
   const update = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
     setError('')
@@ -101,12 +89,23 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Check for account suspension from Firestore (enforced across all devices)
+
+    // Instant check from localStorage — no network wait
+    try {
+      const a = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
+      if (a.suspended) {
+        window.dispatchEvent(new CustomEvent('show-suspend-modal', {
+          detail: { reason: a.suspendReason || '' }
+        }))
+        return
+      }
+    } catch { /* silent */ }
+
+    // Also verify with Firestore to catch admin changes made on other devices
     const uid = getUserUid()
     const suspensionStatus = await checkUserSuspensionStatus(uid)
     if (suspensionStatus.suspended) {
-      window.dispatchEvent(new CustomEvent('show-suspend-modal', { 
+      window.dispatchEvent(new CustomEvent('show-suspend-modal', {
         detail: { reason: suspensionStatus.reason }
       }))
       return
