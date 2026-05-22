@@ -772,7 +772,6 @@ export default function Dashboard({ profile, onLogout }) {
               <span>For assistance: </span>
               <strong>1-800-555-0199</strong>
             </div>
-            <button className="suspend-close-btn" onClick={() => setShowSuspend(false)}>Understood</button>
           </div>
         </div>
       )}
