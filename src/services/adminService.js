@@ -713,56 +713,39 @@ export function syncBalanceToFirestore(uid, newBalance) {
  * @returns {Promise<{suspended: boolean, reason: string}>}
  */
 export async function checkUserSuspensionStatus(uid) {
-  if (!uid) {
-    return { suspended: false, reason: '' }
-  }
-  
-  // First check localStorage (fast path)
-  try {
-    const admin = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
-    if (admin.suspended) {
-      return { suspended: true, reason: admin.suspendReason || 'Your account has been temporarily restricted.' }
-    }
-  } catch { /* ignore */ }
-  
-  // Check global circuit breaker
+  if (!uid) return { suspended: false, reason: '' }
+
+  // Circuit breaker open — fall back to localStorage (can't reach Firestore)
   if (!firestoreCircuitBreaker.canOperate()) {
-    console.warn('[adminService] Circuit breaker open - using localStorage for suspension check')
-    return { suspended: false, reason: '' }
-  }
-  
-  try {
-    const userRef = doc(db, 'profiles', uid)
-    const userSnap = await getDoc(userRef)
-    
-    if (!userSnap.exists()) {
-      return { suspended: false, reason: '' }
-    }
-    
-    const data = userSnap.data()
-    const isSuspended = data.suspended === true
-    
-    // Update localStorage with latest status for offline use
-    if (isSuspended) {
-      localStorage.setItem('securebank_admin', JSON.stringify({
-        suspended: true,
-        suspendReason: data.suspendReason || 'Your account has been temporarily restricted.'
-      }))
-    }
-    
-    return { 
-      suspended: isSuspended, 
-      reason: data.suspendReason || 'Your account has been temporarily restricted.' 
-    }
-  } catch (err) {
-    console.error('[adminService] checkUserSuspensionStatus failed:', err.message)
-    // On error, fall back to localStorage
     try {
       const admin = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
-      return { 
-        suspended: admin.suspended || false, 
-        reason: admin.suspendReason || 'Your account has been temporarily restricted.' 
-      }
+      return { suspended: admin.suspended || false, reason: admin.suspendReason || '' }
+    } catch {
+      return { suspended: false, reason: '' }
+    }
+  }
+
+  try {
+    const userSnap = await getDoc(doc(db, 'profiles', uid))
+    if (!userSnap.exists()) return { suspended: false, reason: '' }
+
+    const data = userSnap.data()
+    const isSuspended = data.suspended === true
+    const reason = isSuspended ? (data.suspendReason || '') : ''
+
+    // Always sync localStorage so unsuspend is reflected immediately next time
+    localStorage.setItem('securebank_admin', JSON.stringify({
+      suspended: isSuspended,
+      suspendReason: reason,
+    }))
+
+    return { suspended: isSuspended, reason }
+  } catch (err) {
+    console.error('[adminService] checkUserSuspensionStatus failed:', err.message)
+    // Firestore unavailable — use localStorage as last resort
+    try {
+      const admin = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
+      return { suspended: admin.suspended || false, reason: admin.suspendReason || '' }
     } catch {
       return { suspended: false, reason: '' }
     }

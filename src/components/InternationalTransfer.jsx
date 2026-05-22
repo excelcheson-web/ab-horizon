@@ -90,18 +90,8 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Instant check from localStorage — no network wait
-    try {
-      const a = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
-      if (a.suspended) {
-        window.dispatchEvent(new CustomEvent('show-suspend-modal', {
-          detail: { reason: a.suspendReason || '' }
-        }))
-        return
-      }
-    } catch { /* silent */ }
-
-    // Also verify with Firestore to catch admin changes made on other devices
+    // Always check Firestore — this also updates localStorage so unsuspend
+    // is reflected immediately without requiring a logout/login
     const uid = getUserUid()
     const suspensionStatus = await checkUserSuspensionStatus(uid)
     if (suspensionStatus.suspended) {
