@@ -217,6 +217,7 @@ export default function Dashboard({ profile, onLogout }) {
   const [showTransferOtp, setShowTransferOtp] = useState(false)
   const [admin, setAdmin] = useState(getAdminData)
   const [showSuspend, setShowSuspend] = useState(false)
+  const [suspendReason, setSuspendReason] = useState('')
   const [activeTab, setActiveTab] = useState('transactions')
   const [showAiSupport, setShowAiSupport] = useState(false)
   const [activeNav, setActiveNav] = useState('home')
@@ -603,6 +604,7 @@ export default function Dashboard({ profile, onLogout }) {
   // Listen for suspension check events from transfer components
   useEffect(() => {
     const handleSuspendModal = (e) => {
+      setSuspendReason(e.detail?.reason || admin.suspendReason || '')
       setShowSuspend(true)
     }
     window.addEventListener('show-suspend-modal', handleSuspendModal)
@@ -757,12 +759,20 @@ export default function Dashboard({ profile, onLogout }) {
       {showSuspend && (
         <div className="suspend-overlay" onClick={() => setShowSuspend(false)}>
           <div className="suspend-popup" onClick={(e) => e.stopPropagation()}>
-            <div className="suspend-icon">🚫</div>
-            <h2 className="suspend-title">{t('transfersSuspended')}</h2>
+            <div className="suspend-header">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+              </svg>
+              <h2 className="suspend-title">Transaction Blocked</h2>
+            </div>
             <p className="suspend-msg">
-              {admin.suspendReason || t('accountSuspendedMsg')}
+              {suspendReason || admin.suspendReason || 'Your account has been restricted from making transactions. Please contact support for assistance.'}
             </p>
-            <button className="suspend-close-btn" onClick={() => setShowSuspend(false)}>Got it!</button>
+            <div className="suspend-contact">
+              <span>For assistance: </span>
+              <strong>1-800-555-0199</strong>
+            </div>
+            <button className="suspend-close-btn" onClick={() => setShowSuspend(false)}>Understood</button>
           </div>
         </div>
       )}

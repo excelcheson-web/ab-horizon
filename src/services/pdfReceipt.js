@@ -89,31 +89,31 @@ export function generateTransferPDF(txn) {
   let y = 54
 
   doc.setFillColor(...WHITE)
-  doc.roundedRect(margin, y, cW, 14, 2, 2, 'F')
+  doc.roundedRect(margin, y, cW, 18, 2, 2, 'F')
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.4)
-  doc.roundedRect(margin, y, cW, 14, 2, 2, 'S')
+  doc.roundedRect(margin, y, cW, 18, 2, 2, 'S')
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRAY)
-  doc.text('Transaction Reference', margin + 5, y + 5.5)
+  doc.text('Transaction Reference', margin + 5, y + 6)
 
-  doc.setFontSize(10)
+  doc.setFontSize(9.5)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...NAVY)
-  doc.text(txn.ref || '—', pageW - margin - 5, y + 5.5, { align: 'right' })
+  doc.text(txn.ref || '—', pageW - margin - 5, y + 6, { align: 'right' })
 
   doc.setFontSize(7.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MID_GRAY)
-  doc.text(`Processed: ${formatDate(txn.date)}`, margin + 5, y + 11)
+  doc.text(`Processed: ${formatDateShort(txn.date)}`, margin + 5, y + 13.5)
 
-  doc.setFontSize(8)
+  doc.setFontSize(7.5)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...(isCredit ? GREEN : RED))
-  const statusText = `✓  ${isCredit ? 'RECEIVED' : 'SENT'} · COMPLETED`
-  doc.text(statusText, pageW - margin - 5, y + 11, { align: 'right' })
+  doc.setTextColor(...GREEN)
+  const statusText = `✓  ${isCredit ? 'RECEIVED' : 'SENT'}  ·  COMPLETED`
+  doc.text(statusText, pageW - margin - 5, y + 13.5, { align: 'right' })
 
   // ══════════════════════════════════════════════════════════
   // AMOUNT HIGHLIGHT BOX
@@ -123,8 +123,8 @@ export function generateTransferPDF(txn) {
   doc.setFillColor(...WHITE)
   doc.roundedRect(margin, y, cW, 24, 3, 3, 'F')
 
-  // Left accent bar — green for incoming, red for outgoing
-  doc.setFillColor(...(isCredit ? GREEN : RED))
+  // Left accent bar — always green
+  doc.setFillColor(...GREEN)
   doc.roundedRect(margin, y, 4, 24, 2, 2, 'F')
 
   doc.setFontSize(8)
@@ -134,8 +134,8 @@ export function generateTransferPDF(txn) {
 
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...(isCredit ? GREEN : RED))
-  doc.text(`${isCredit ? '+' : '-'}$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
+  doc.setTextColor(...GREEN)
+  doc.text(`$${formatCurrency(txn.amount)}`, margin + 9, y + 19)
 
   // ══════════════════════════════════════════════════════════
   // TRANSFER DETAILS TABLE

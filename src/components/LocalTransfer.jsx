@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { sendOtp, verifyOtp } from '../services/otpService'
@@ -60,6 +60,18 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
   const [pendingTxn, setPendingTxn] = useState(null)
   const otpRefs = useRef([])
+
+  // Check suspension immediately when the sheet opens (localStorage is instant)
+  useEffect(() => {
+    try {
+      const a = JSON.parse(localStorage.getItem('securebank_admin') || '{}')
+      if (a.suspended) {
+        window.dispatchEvent(new CustomEvent('show-suspend-modal', {
+          detail: { reason: a.suspendReason || '' }
+        }))
+      }
+    } catch { /* silent */ }
+  }, [])
 
   const update = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
