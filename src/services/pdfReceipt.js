@@ -88,32 +88,41 @@ export function generateTransferPDF(txn) {
   // ══════════════════════════════════════════════════════════
   let y = 54
 
+  // Box is 24mm tall — 3 rows: ref, date, status badge
   doc.setFillColor(...WHITE)
-  doc.roundedRect(margin, y, cW, 18, 2, 2, 'F')
+  doc.roundedRect(margin, y, cW, 24, 2, 2, 'F')
   doc.setDrawColor(...GOLD)
   doc.setLineWidth(0.4)
-  doc.roundedRect(margin, y, cW, 18, 2, 2, 'S')
+  doc.roundedRect(margin, y, cW, 24, 2, 2, 'S')
 
-  doc.setFontSize(7.5)
+  // Row 1 — label left, reference number right
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRAY)
-  doc.text('Transaction Reference', margin + 5, y + 6)
+  doc.text('Transaction Reference', margin + 5, y + 6.5)
 
-  doc.setFontSize(9.5)
+  doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(...NAVY)
-  doc.text(txn.ref || '—', pageW - margin - 5, y + 6, { align: 'right' })
+  doc.text(txn.ref || '—', pageW - margin - 5, y + 6.5, { align: 'right' })
 
-  doc.setFontSize(7.5)
+  // Row 2 — processed date left
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...MID_GRAY)
   doc.text(`Processed: ${formatDateShort(txn.date)}`, margin + 5, y + 13.5)
 
-  doc.setFontSize(7.5)
+  // Row 3 — green status badge right (drawn as filled rect + white text)
+  const badgeLabel = isCredit ? 'RECEIVED' : 'SENT'
+  doc.setFontSize(6.5)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(...GREEN)
-  const statusText = `✓  ${isCredit ? 'RECEIVED' : 'SENT'}  ·  COMPLETED`
-  doc.text(statusText, pageW - margin - 5, y + 13.5, { align: 'right' })
+  const badgeTextW = doc.getTextWidth(`${badgeLabel}  COMPLETED`) + 6
+  const badgeX = pageW - margin - 5 - badgeTextW
+  const badgeY = y + 16.5
+  doc.setFillColor(...GREEN)
+  doc.roundedRect(badgeX, badgeY - 3.8, badgeTextW, 5.5, 1, 1, 'F')
+  doc.setTextColor(...WHITE)
+  doc.text(`${badgeLabel}  COMPLETED`, badgeX + 3, badgeY, { baseline: 'middle' })
 
   // ══════════════════════════════════════════════════════════
   // AMOUNT HIGHLIGHT BOX
