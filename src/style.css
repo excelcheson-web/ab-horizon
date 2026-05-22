@@ -2750,6 +2750,112 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.5;
 }
 
+/* ── Crypto buy/sell modal ─────────────────────────────── */
+.crypto-modal-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(5,14,28,0.82);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0;
+}
+.crypto-modal {
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  width: 100%; max-width: 480px;
+  padding: 28px 24px 40px;
+  animation: crypto-slide-up 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes crypto-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.crypto-modal-handle {
+  width: 40px; height: 4px; border-radius: 99px;
+  background: rgba(0,0,0,0.12); margin: 0 auto 20px;
+}
+.crypto-modal-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+}
+.crypto-modal-icon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.1rem; font-weight: 700; flex-shrink: 0;
+}
+.crypto-modal-coin-name { font-size: 1.05rem; font-weight: 700; color: #0d1b4b; margin: 0; }
+.crypto-modal-price     { font-size: 0.82rem; color: rgba(11,31,77,0.50); margin: 0; }
+.crypto-modal-tabs {
+  display: flex; gap: 0; border-radius: 10px;
+  background: rgba(11,31,77,0.06); padding: 3px; margin-bottom: 20px;
+}
+.crypto-modal-tab {
+  flex: 1; padding: 9px 0; border: none; border-radius: 8px;
+  font-size: 0.88rem; font-weight: 700; cursor: pointer;
+  background: transparent; color: rgba(11,31,77,0.45); transition: all 0.15s;
+}
+.crypto-modal-tab--active { background: #0d1b4b; color: #fff; }
+.crypto-modal-avail { font-size: 0.78rem; color: rgba(11,31,77,0.50); margin: 0 0 8px; }
+.crypto-modal-input-wrap { position: relative; margin-bottom: 10px; }
+.crypto-modal-input-prefix {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  font-size: 1rem; font-weight: 600; color: #0d1b4b;
+}
+.crypto-modal-input {
+  width: 100%; padding: 13px 14px 13px 28px; border-radius: 12px;
+  border: 1.5px solid rgba(201,162,58,0.25); font-size: 1.1rem;
+  font-weight: 600; color: #0d1b4b; outline: none;
+  background: rgba(201,162,58,0.04);
+  transition: border-color 0.15s;
+}
+.crypto-modal-input:focus { border-color: #c9a23a; }
+.crypto-modal-calc {
+  font-size: 0.82rem; color: rgba(11,31,77,0.55);
+  margin: 0 0 20px; min-height: 18px;
+}
+.crypto-modal-calc strong { color: #0d1b4b; }
+.crypto-modal-confirm {
+  width: 100%; padding: 14px; border: none; border-radius: 12px;
+  background: linear-gradient(135deg, #0d1b4b, #c9a23a);
+  color: #fff; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.crypto-modal-confirm:disabled { opacity: 0.45; cursor: not-allowed; }
+.crypto-modal-confirm:not(:disabled):hover { opacity: 0.88; }
+.crypto-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: #0d1b4b; color: #fff; padding: 10px 20px;
+  border-radius: 20px; font-size: 0.84rem; font-weight: 600;
+  z-index: 4000; white-space: nowrap;
+  animation: crypto-toast-in 0.2s ease;
+}
+@keyframes crypto-toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+.crypto-page-buy-btn, .crypto-page-sell-btn {
+  padding: 5px 10px; border-radius: 8px; border: none;
+  font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+}
+.crypto-page-buy-btn  { background: rgba(22,163,74,0.12); color: #16a34a; margin-right: 4px; }
+.crypto-page-sell-btn { background: rgba(239,68,68,0.10);  color: #ef4444; }
+.crypto-page-buy-btn:hover, .crypto-page-sell-btn:hover { opacity: 0.75; }
+.crypto-page-holdings { font-size: 0.72rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
+
+/* ── Active loan cards ─────────────────────────────────── */
+.loan-active-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.loan-active-card {
+  background: rgba(201,162,58,0.06); border: 1px solid rgba(201,162,58,0.20);
+  border-radius: 14px; padding: 16px;
+}
+.loan-active-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.loan-active-id   { font-size: 0.72rem; color: rgba(11,31,77,0.45); font-family: monospace; }
+.loan-active-amt  { font-size: 1rem; font-weight: 700; color: #0d1b4b; }
+.loan-active-meta { font-size: 0.78rem; color: rgba(11,31,77,0.55); margin-bottom: 10px; }
+.loan-progress    { height: 5px; background: rgba(11,31,77,0.10); border-radius: 99px; margin-bottom: 12px; overflow: hidden; }
+.loan-progress-fill { height: 100%; background: linear-gradient(90deg, #c9a23a, #0d1b4b); border-radius: 99px; transition: width 0.4s; }
+.loan-pay-btn {
+  width: 100%; padding: 10px; border: 1.5px solid #c9a23a; border-radius: 10px;
+  background: transparent; color: #c9a23a; font-size: 0.84rem; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.loan-pay-btn:hover { background: rgba(201,162,58,0.10); }
+
 /* ── Tabs (Transactions / Statements) ───────────────────────── */
 .db-tabs {
   display: flex;

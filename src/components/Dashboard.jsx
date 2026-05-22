@@ -342,10 +342,17 @@ export default function Dashboard({ profile, onLogout }) {
           const firestoreBal = parseFloat(data.balance ?? 0)
           const firestoreVault = parseFloat(data.savingsVault ?? data.savings_vault ?? 0)
 
-          // Only update UI if Firestore has different data (use Firestore as source of truth)
-          if (firestoreBal !== localBal && !isNaN(firestoreBal)) {
-            setBankBalance(firestoreBal)
-            localStorage.setItem('bank_balance', String(firestoreBal))
+          // Use Firestore balance only if:
+          //  a) local is zero/missing (first login, cleared storage), or
+          //  b) Firestore is HIGHER — means admin credited the account
+          // Never override a locally-decremented balance with a stale Firestore value.
+          if (!isNaN(firestoreBal)) {
+            const localEmpty = !localBal || localBal === 0
+            const adminCredit = firestoreBal > localBal
+            if (localEmpty || adminCredit) {
+              setBankBalance(firestoreBal)
+              localStorage.setItem('bank_balance', String(firestoreBal))
+            }
           }
           if (firestoreVault !== localVault && !isNaN(firestoreVault)) {
             setSavingsVault(firestoreVault)

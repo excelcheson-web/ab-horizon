@@ -692,20 +692,16 @@ export async function updateUserProfilePicture(uid, profilePicUrl) {
  * All data persistence is now handled through localStorage.
  */
 export function syncBalanceToFirestore(uid, newBalance) {
-  if (!uid) {
-    console.warn('[adminService] Cannot sync balance without UID')
-    return
-  }
-  
-  // ONLY update localStorage - Firestore writes are disabled to prevent quota exhaustion
+  if (!uid) return
   broadcastToApp(uid, { balance: newBalance })
-  
-  // Log that we're skipping Firestore to help with debugging
-  console.log(`[adminService] Balance ${newBalance} saved to localStorage only (Firestore writes disabled)`)
-  
-  // NOTE: Firestore writes are intentionally disabled to prevent resource-exhausted errors.
-  // The app now uses localStorage as the primary data store.
-  // If you need to sync to Firestore, use the admin panel which has proper rate limiting.
+  // Debounced Firestore write — batches rapid updates into one write per 30s
+  debouncedWrite(`balance-${uid}`, async () => {
+    try {
+      await updateDoc(doc(db, 'profiles', uid), { balance: newBalance })
+    } catch (err) {
+      console.warn('[adminService] Balance Firestore sync failed:', err.message)
+    }
+  }, 30000)
 }
 
 /**

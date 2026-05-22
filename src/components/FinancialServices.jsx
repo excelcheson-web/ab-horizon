@@ -5,6 +5,18 @@ const HISTORY_KEY = 'transfer_history'
 const LOANS_KEY = 'securebank_loans'
 const INVESTMENTS_KEY = 'securebank_financial_investments'
 
+function dispatchBalanceEvent() {
+  window.dispatchEvent(new StorageEvent('storage', {
+    key: BALANCE_KEY,
+    newValue: localStorage.getItem(BALANCE_KEY),
+    storageArea: localStorage,
+  }))
+}
+function getActiveLoans() {
+  try { return JSON.parse(localStorage.getItem(LOANS_KEY) || '[]').filter((l) => l.status === 'active') }
+  catch { return [] }
+}
+
 function getBalance() {
   return parseFloat(localStorage.getItem(BALANCE_KEY) || '0')
 }
@@ -97,6 +109,8 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
   const [loanTerm, setLoanTerm] = useState(LOAN_TERMS[0])
   const [loanProcessing, setLoanProcessing] = useState(false)
   const [loanSuccess, setLoanSuccess] = useState(null)
+  const [loanSubTab, setLoanSubTab] = useState('apply') // 'active' | 'apply'
+  const [activeLoans, setActiveLoans] = useState(getActiveLoans)
   const [investAmount, setInvestAmount] = useState('')
   const [selectedManager, setSelectedManager] = useState(null)
   const [investProcessing, setInvestProcessing] = useState(false)
@@ -118,7 +132,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
 
   function handleLoanApply() {
     const amt = parseFloat(loanAmount)
-    if (!amt || amt < 500 || amt > 500000) return
+    if (!amt || amt < 500 || amt > 50000) return
     setLoanProcessing(true)
     setTimeout(() => {
       const bal = getBalance()
@@ -130,6 +144,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         id: `LN-${Date.now()}`,
         amount: amt,
         term: loanTerm.months,
+        remainingMonths: loanTerm.months,
         apr: loanTerm.apr,
         monthlyPayment: loanCalc.monthly,
         totalRepayment: loanCalc.total,
@@ -152,9 +167,46 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       })
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
+      dispatchBalanceEvent()
       setLoanProcessing(false)
       setLoanSuccess(loan)
+      setActiveLoans(getActiveLoans())
     }, 5000)
+  }
+
+  function handleLoanPayment(loanId) {
+    const allLoans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
+    const idx = allLoans.findIndex((l) => l.id === loanId)
+    if (idx === -1) return
+    const loan = allLoans[idx]
+    const payment = loan.monthlyPayment
+    const bal = getBalance()
+    if (payment > bal) return
+    const newBal = bal - payment
+    setBalance(newBal)
+    const newRemaining = (loan.remainingMonths || loan.term) - 1
+    allLoans[idx] = {
+      ...loan,
+      remainingMonths: newRemaining,
+      status: newRemaining <= 0 ? 'paid' : 'active',
+    }
+    localStorage.setItem(LOANS_KEY, JSON.stringify(allLoans))
+    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    history.unshift({
+      id: Date.now(),
+      ref: `PMT-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
+      type: 'loan_payment',
+      beneficiary: 'Loan Repayment',
+      amount: payment,
+      balanceAfter: newBal,
+      date: new Date().toISOString(),
+      direction: 'outgoing',
+      memo: `Monthly payment for ${loan.id}${newRemaining <= 0 ? ' – FULLY PAID' : ` – ${newRemaining} months remaining`}`,
+    })
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    if (onBalanceUpdate) onBalanceUpdate(newBal)
+    dispatchBalanceEvent()
+    setActiveLoans(getActiveLoans())
   }
 
   function handleInvest(manager, type) {
@@ -191,6 +243,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       })
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
+      dispatchBalanceEvent()
       setInvestProcessing(false)
       setInvestSuccess(inv)
     }, 5000)
@@ -230,13 +283,14 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       })
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
+      dispatchBalanceEvent()
       setMmProcessing(false)
       setMmSuccess(inv)
     }, 5000)
   }
 
   function resetState() {
-    setLoanAmount(''); setLoanSuccess(null); setLoanProcessing(false)
+    setLoanAmount(''); setLoanSuccess(null); setLoanProcessing(false); setLoanSubTab('apply')
     setInvestAmount(''); setSelectedManager(null); setInvestSuccess(null); setInvestProcessing(false)
     setMmAmount(''); setMmSuccess(null); setMmProcessing(false)
   }
@@ -259,6 +313,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
 
   /* ── MENU view ─────────────────────────────────── */
   function renderMenu() {
+    const activeLoanCount = activeLoans.length
     return (
       <div className="fs-overlay">
         <div className="fs-page">
@@ -271,13 +326,22 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
             <p className="fs-menu-subtitle">Explore our products and services</p>
             <div className="fs-cards">
               {SERVICES.map((s) => (
-                <button key={s.id} className="fs-card" onClick={() => { resetState(); setActiveView(s.id) }}>
+                <button key={s.id} className="fs-card" onClick={() => { resetState(); setActiveView(s.id); if (s.id === 'loan' && activeLoanCount > 0) setLoanSubTab('active') }}>
                   <div className="fs-card-img-wrap">
                     <img src={s.img} alt={s.title} className="fs-card-img" loading="lazy" />
                     <div className="fs-card-img-overlay" style={{ background: `linear-gradient(transparent 30%, ${s.color}cc 100%)` }} />
                   </div>
-                  <div className="fs-card-body">
+                  <div className="fs-card-body" style={{ position: 'relative' }}>
                     <h3 className="fs-card-title">{s.title}</h3>
+                    {s.id === 'loan' && activeLoanCount > 0 && (
+                      <span style={{
+                        position: 'absolute', top: 0, right: 0,
+                        background: '#c9a23a', color: '#fff',
+                        fontSize: '0.7rem', fontWeight: 700,
+                        borderRadius: '99px', padding: '2px 8px',
+                        lineHeight: 1.4,
+                      }}>{activeLoanCount} active</span>
+                    )}
                     <p className="fs-card-desc">{s.desc}</p>
                     <span className="fs-card-arrow">→</span>
                   </div>
@@ -317,60 +381,145 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         </div>
       )
     }
+
+    const loanAmtParsed = parseFloat(loanAmount)
+
     return (
       <div className="fs-overlay">
         <div className="fs-page">
           {renderHeader('Personal Loan')}
           <div className="fs-scroll">
-            <div className="fs-hero-img-wrap">
-              <img src={SERVICES[0].img} alt="Loan" className="fs-hero-img" loading="lazy" />
-              <div className="fs-hero-overlay" />
-              <div className="fs-hero-text">
-                <p className="fs-hero-label">Rates from</p>
-                <p className="fs-hero-value">5.9% APR</p>
-              </div>
-            </div>
-            <div className="fs-form-section">
-              <label className="fs-label">Loan Amount ($500 – $500,000)</label>
-              <input
-                className="fs-input"
-                type="number"
-                placeholder="Enter amount"
-                value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
-                min="500"
-                max="500000"
-              />
-              <label className="fs-label" style={{ marginTop: 14 }}>Select Term</label>
-              <div className="fs-term-options">
-                {LOAN_TERMS.map((t) => (
-                  <button
-                    key={t.months}
-                    className={`fs-term-btn ${loanTerm.months === t.months ? 'fs-term-btn--active' : ''}`}
-                    onClick={() => setLoanTerm(t)}
-                  >
-                    <span className="fs-term-months">{t.months}mo</span>
-                    <span className="fs-term-apr">{t.apr}%</span>
-                  </button>
-                ))}
-              </div>
-              {parseFloat(loanAmount) >= 500 && (
-                <div className="fs-calc-card">
-                  <h4 className="fs-calc-title">Loan Summary</h4>
-                  <div className="fs-detail-row"><span>Principal</span><span>${fmt(parseFloat(loanAmount))}</span></div>
-                  <div className="fs-detail-row"><span>Monthly Payment</span><span className="fs-highlight">${fmt(loanCalc.monthly)}</span></div>
-                  <div className="fs-detail-row"><span>Total Interest</span><span>${fmt(loanCalc.interest)}</span></div>
-                  <div className="fs-detail-row"><span>Total Repayment</span><span>${fmt(loanCalc.total)}</span></div>
-                </div>
+            {/* Sub-tabs: Active Loans | Apply */}
+            <div style={{ display: 'flex', gap: 0, background: 'rgba(13,27,75,0.06)', borderRadius: 10, padding: 3, margin: '0 0 18px' }}>
+              {activeLoans.length > 0 && (
+                <button
+                  style={{
+                    flex: 1, padding: '9px 0', border: 'none', borderRadius: 8,
+                    fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                    background: loanSubTab === 'active' ? '#0d1b4b' : 'transparent',
+                    color: loanSubTab === 'active' ? '#fff' : 'rgba(13,27,75,0.5)',
+                  }}
+                  onClick={() => setLoanSubTab('active')}
+                >
+                  Active Loans {activeLoans.length > 0 && `(${activeLoans.length})`}
+                </button>
               )}
               <button
-                className="fs-primary-btn"
-                disabled={!parseFloat(loanAmount) || parseFloat(loanAmount) < 500 || parseFloat(loanAmount) > 500000 || loanProcessing}
-                onClick={handleLoanApply}
+                style={{
+                  flex: 1, padding: '9px 0', border: 'none', borderRadius: 8,
+                  fontSize: '0.84rem', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                  background: loanSubTab === 'apply' ? '#0d1b4b' : 'transparent',
+                  color: loanSubTab === 'apply' ? '#fff' : 'rgba(13,27,75,0.5)',
+                }}
+                onClick={() => setLoanSubTab('apply')}
               >
-                {loanProcessing ? <span className="fs-spinner" /> : 'Apply for Loan'}
+                Apply for Loan
               </button>
             </div>
+
+            {/* Active Loans sub-tab */}
+            {loanSubTab === 'active' && (
+              <div className="loan-active-list">
+                {activeLoans.length === 0 ? (
+                  <p style={{ color: 'rgba(13,27,75,0.45)', fontSize: '0.88rem', textAlign: 'center', padding: '20px 0' }}>No active loans</p>
+                ) : activeLoans.map((loan) => {
+                  const total = loan.term || 1
+                  const remaining = loan.remainingMonths != null ? loan.remainingMonths : total
+                  const paid = total - remaining
+                  const pct = Math.min(100, Math.round((paid / total) * 100))
+                  const canPay = getBalance() >= loan.monthlyPayment
+                  return (
+                    <div key={loan.id} className="loan-active-card">
+                      <div className="loan-active-head">
+                        <div>
+                          <div className="loan-active-id">{loan.id}</div>
+                          <div className="loan-active-amt">${fmt(loan.amount)}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '0.78rem', color: '#c9a23a', fontWeight: 700 }}>{loan.apr}% APR</div>
+                          <div style={{ fontSize: '0.72rem', color: 'rgba(11,31,77,0.45)' }}>{remaining} mo left</div>
+                        </div>
+                      </div>
+                      <div className="loan-active-meta">
+                        Monthly: <strong>${fmt(loan.monthlyPayment)}</strong> &nbsp;·&nbsp; Paid: {paid}/{total} months
+                      </div>
+                      <div className="loan-progress">
+                        <div className="loan-progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <button
+                        className="loan-pay-btn"
+                        disabled={!canPay}
+                        onClick={() => handleLoanPayment(loan.id)}
+                        style={!canPay ? { opacity: 0.45, cursor: 'not-allowed' } : {}}
+                      >
+                        {canPay ? `Make Payment · $${fmt(loan.monthlyPayment)}` : 'Insufficient Balance'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Apply sub-tab */}
+            {loanSubTab === 'apply' && (
+              <>
+                <div className="fs-hero-img-wrap">
+                  <img src={SERVICES[0].img} alt="Loan" className="fs-hero-img" loading="lazy" />
+                  <div className="fs-hero-overlay" />
+                  <div className="fs-hero-text">
+                    <p className="fs-hero-label">Rates from</p>
+                    <p className="fs-hero-value">5.9% APR</p>
+                  </div>
+                </div>
+                <div className="fs-form-section">
+                  <label className="fs-label">Loan Amount ($500 – $50,000)</label>
+                  <input
+                    className="fs-input"
+                    type="number"
+                    placeholder="Enter amount"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(e.target.value)}
+                    min="500"
+                    max="50000"
+                  />
+                  {loanAmtParsed > 50000 && (
+                    <p style={{ color: '#ef4444', fontSize: '0.76rem', margin: '4px 0 0' }}>Maximum loan amount is $50,000</p>
+                  )}
+                  {loanAmtParsed > 0 && loanAmtParsed < 500 && (
+                    <p style={{ color: '#ef4444', fontSize: '0.76rem', margin: '4px 0 0' }}>Minimum loan amount is $500</p>
+                  )}
+                  <label className="fs-label" style={{ marginTop: 14 }}>Select Term</label>
+                  <div className="fs-term-options">
+                    {LOAN_TERMS.map((t) => (
+                      <button
+                        key={t.months}
+                        className={`fs-term-btn ${loanTerm.months === t.months ? 'fs-term-btn--active' : ''}`}
+                        onClick={() => setLoanTerm(t)}
+                      >
+                        <span className="fs-term-months">{t.months}mo</span>
+                        <span className="fs-term-apr">{t.apr}%</span>
+                      </button>
+                    ))}
+                  </div>
+                  {loanAmtParsed >= 500 && loanAmtParsed <= 50000 && (
+                    <div className="fs-calc-card">
+                      <h4 className="fs-calc-title">Loan Summary</h4>
+                      <div className="fs-detail-row"><span>Principal</span><span>${fmt(loanAmtParsed)}</span></div>
+                      <div className="fs-detail-row"><span>Monthly Payment</span><span className="fs-highlight">${fmt(loanCalc.monthly)}</span></div>
+                      <div className="fs-detail-row"><span>Total Interest</span><span>${fmt(loanCalc.interest)}</span></div>
+                      <div className="fs-detail-row"><span>Total Repayment</span><span>${fmt(loanCalc.total)}</span></div>
+                    </div>
+                  )}
+                  <button
+                    className="fs-primary-btn"
+                    disabled={!loanAmtParsed || loanAmtParsed < 500 || loanAmtParsed > 50000 || loanProcessing}
+                    onClick={handleLoanApply}
+                  >
+                    {loanProcessing ? <span className="fs-spinner" /> : 'Apply for Loan'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
