@@ -663,6 +663,8 @@ export async function updateUserAccountType(uid, accountType) {
     await updateDoc(userRef, { accountType })
   })
   broadcastToApp(uid, { accountType })
+  // Cross-tab: native storage event updates the header label on the user's open tab
+  localStorage.setItem('admin_account_type_update', JSON.stringify({ uid, accountType, ts: Date.now() }))
   return { success: true, accountType }
 }
 

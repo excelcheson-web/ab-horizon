@@ -562,6 +562,15 @@ export default function Dashboard({ profile, onLogout }) {
           if (update.uid === currentUid) setProfilePic(update.url || null)
         } catch { /* silent */ }
       }
+      if (e.key === 'admin_account_type_update') {
+        try {
+          const update = JSON.parse(e.newValue || '{}')
+          const currentUid = profile?.uid || profile?.id
+          if (update.uid === currentUid) {
+            localStorage.setItem('user_account_type', update.accountType || '')
+          }
+        } catch { /* silent */ }
+      }
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
