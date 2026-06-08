@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
+import { saveTransaction } from '../services/transactionService'
 
 const BALANCE_KEY = 'bank_balance'
-const HISTORY_KEY = 'transfer_history'
 const LOANS_KEY = 'securebank_loans'
 const INVESTMENTS_KEY = 'securebank_financial_investments'
 
@@ -153,9 +153,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       }
       loans.push(loan)
       localStorage.setItem(LOANS_KEY, JSON.stringify(loans))
-      // Save to transfer history
-      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-      history.unshift({
+      saveTransaction({
         id: loan.id,
         ref: loan.id,
         type: 'loan_disbursement',
@@ -163,9 +161,9 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         amount: amt,
         balanceAfter: newBal,
         date: loan.date,
+        direction: 'incoming',
         memo: `${loanTerm.months}-month loan at ${loanTerm.apr}% APR`,
       })
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
       dispatchBalanceEvent()
       setLoanProcessing(false)
@@ -191,8 +189,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       status: newRemaining <= 0 ? 'paid' : 'active',
     }
     localStorage.setItem(LOANS_KEY, JSON.stringify(allLoans))
-    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    history.unshift({
+    saveTransaction({
       id: Date.now(),
       ref: `PMT-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
       type: 'loan_payment',
@@ -203,7 +200,6 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       direction: 'outgoing',
       memo: `Monthly payment for ${loan.id}${newRemaining <= 0 ? ' – FULLY PAID' : ` – ${newRemaining} months remaining`}`,
     })
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
     if (onBalanceUpdate) onBalanceUpdate(newBal)
     dispatchBalanceEvent()
     setActiveLoans(getActiveLoans())
@@ -230,8 +226,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       }
       investments.push(inv)
       localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
-      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-      history.unshift({
+      saveTransaction({
         id: inv.id,
         ref: inv.id,
         type: 'investment',
@@ -239,9 +234,9 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         amount: amt,
         balanceAfter: newBal,
         date: inv.date,
+        direction: 'outgoing',
         memo: `${type === 'pension' ? 'Pension' : 'Fund'} investment – ${manager.returnRate} expected return`,
       })
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
       dispatchBalanceEvent()
       setInvestProcessing(false)
@@ -270,8 +265,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
       }
       investments.push(inv)
       localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
-      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-      history.unshift({
+      saveTransaction({
         id: inv.id,
         ref: inv.id,
         type: 'investment',
@@ -279,9 +273,9 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         amount: amt,
         balanceAfter: newBal,
         date: inv.date,
+        direction: 'outgoing',
         memo: `Money market fund – ${MONEY_MARKET.apy}% APY`,
       })
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       if (onBalanceUpdate) onBalanceUpdate(newBal)
       dispatchBalanceEvent()
       setMmProcessing(false)

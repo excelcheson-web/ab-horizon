@@ -233,6 +233,7 @@ function clearLocalStorage() {
   localStorage.removeItem('bank_balance')
   // Transaction history — the source of the "ghost transactions" bug
   localStorage.removeItem('transfer_history')
+  localStorage.removeItem('deleted_transactions')
   // Notifications
   localStorage.removeItem('securebank_notifications')
   localStorage.removeItem('email_notifications_log')

@@ -4,6 +4,7 @@
  * All operations target specific users by UID (found via email lookup).
  */
 import { db, firestoreCircuitBreaker } from './firebaseClient'
+import { rememberDeletedTransaction } from './transactionService'
 import {
   doc,
   setDoc,
@@ -534,6 +535,19 @@ export async function deleteTransaction(uid, txnId) {
     await withRetry(async () => {
       await deleteDoc(txnRef)
     })
+
+    try {
+      await withRetry(async () => {
+        await setDoc(doc(db, 'profiles', uid, 'deletedTransactions', String(txnId)), {
+          id: String(txnId),
+          deletedAt: new Date().toISOString(),
+        })
+      })
+    } catch (err) {
+      console.warn('[adminService] deleteTransaction tombstone failed:', err.message)
+    }
+
+    rememberDeletedTransaction(txnId, uid)
     
     return { success: true, message: 'Transaction deleted and balance adjusted' }
   } catch (err) {

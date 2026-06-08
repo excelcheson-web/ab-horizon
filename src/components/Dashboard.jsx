@@ -790,12 +790,8 @@ export default function Dashboard({ profile, onLogout }) {
               <h2 className="suspend-title">Transaction Blocked</h2>
             </div>
             <p className="suspend-msg">
-              {suspendReason || admin.suspendReason || 'Your account has been restricted from making transactions. Please contact support for assistance.'}
+              {suspendReason || admin.suspendReason || 'Your account has been restricted from making transactions.'}
             </p>
-            <div className="suspend-contact">
-              <span>For assistance: </span>
-              <strong>1-800-555-0199</strong>
-            </div>
           </div>
         </div>
       )}

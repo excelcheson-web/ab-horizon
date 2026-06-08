@@ -1,85 +1,85 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if the request is from an allowed origin
-    function isAllowedOrigin() {
-      return request.origin == 'https://login-tdpay.net' || 
-             request.origin == 'https://www.login-tdpay.net' ||
-             request.origin == 'http://localhost:5173' ||
-             request.origin == 'http://localhost:3000' ||
-             request.origin == 'http://127.0.0.1:5173' ||
-             request.origin == 'http://127.0.0.1:3000';
-    }
 
-    // Helper function to check if user is authenticated
+    // ── Helper: is the request from an authenticated user? ─────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is accessing their own data
+    // ── Helper: is the caller accessing their own document? ────────────────
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Profiles collection - user profile data
-    match /profiles/{userId} {
-      // Allow any authenticated user to read all profiles (needed for admin panel)
-      // In production, you might want to restrict this further
-      allow read: if isAuthenticated();
-      
-      // Users can only create their own profile
-      allow create: if isAuthenticated() && isOwner(userId);
-      
-      // Users can update their own profile, admins can update any profile
-      allow update: if isAuthenticated() && (
-        isOwner(userId) || 
+    // ── Helper: is the caller the authorised admin? ─────────────────────────
+    // Checks the Firebase Auth token email — no Firestore profile field needed.
+    // To change the admin email, update VITE_ADMIN_EMAIL in .env AND this rule.
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'karladelbert83@gmail.com' ||
         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
       );
-      
-      allow delete: if false; // Never allow deletion from client
-      
-      // Nested transactions subcollection
-      // Any authenticated user can read (for admin panel), but only owner/admin can write
+    }
+
+    // ── Profiles collection ─────────────────────────────────────────────────
+    match /profiles/{userId} {
+      // Any authenticated user can read any profile (admin panel needs this)
+      allow read: if isAuthenticated();
+
+      // Users can create only their own profile; admin can create any
+      allow create: if isOwner(userId) || isAdmin();
+
+      // Users can update their own profile; admin can update any profile
+      allow update: if isOwner(userId) || isAdmin();
+
+      // Hard deny all client-side deletes
+      allow delete: if false;
+
+      // ── Nested transactions subcollection ─────────────────────────────────
       match /transactions/{transactionId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && (
-          isOwner(userId) || 
-          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
-        );
-        allow update: if isAuthenticated() && (
-          isOwner(userId) || 
-          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
-        );
-        allow delete: if isAuthenticated() && (
-          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
-        );
+        allow read:   if isAuthenticated();
+        allow create: if isOwner(userId) || isAdmin();
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // Admin deletion markers prevent stale localStorage history from
+      // re-uploading transactions that were intentionally removed.
+      match /deletedTransactions/{transactionId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if isAdmin();
       }
     }
 
-    // Users collection - additional user data
+    // ── Users collection (legacy / additional data) ─────────────────────────
     match /users/{userId} {
-      allow read: if isAuthenticated() && isOwner(userId);
-      allow create: if isAuthenticated() && isOwner(userId);
-      allow update: if isAuthenticated() && isOwner(userId);
+      allow read:   if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
     }
 
-    // Top-level transactions collection (legacy support)
+    // ── Top-level transactions collection (legacy support) ──────────────────
     match /transactions/{transactionId} {
-      allow read: if isAuthenticated() && 
-        (resource.data.userId == request.auth.uid || resource.data.recipientId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if false; // Transactions should not be modified after creation
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.recipientId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow update: if isAdmin();
       allow delete: if false;
     }
 
-    // Admin collection - only admins can access
+    // ── Admin collection ────────────────────────────────────────────────────
     match /admin/{document=**} {
-      allow read, write: if isAuthenticated() && 
-        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true;
+      allow read, write: if isAdmin();
     }
 
-    // Default deny all
+    // ── Default deny all ────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

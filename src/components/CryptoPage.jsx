@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import { saveTransaction } from '../services/transactionService'
 
 const BALANCE_KEY = 'bank_balance'
-const HISTORY_KEY = 'transfer_history'
 const HOLDINGS_KEY = 'crypto_holdings'
 
 const CRYPTO_BASE = [
@@ -139,8 +139,7 @@ export default function CryptoPage({ onClose }) {
       setBalance(newBal)
       saveHoldings(h)
       setHoldings({ ...h })
-      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-      history.unshift({
+      saveTransaction({
         id: Date.now(),
         ref: 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
         type: 'crypto',
@@ -151,7 +150,6 @@ export default function CryptoPage({ onClose }) {
         direction: 'outgoing',
         memo: `Bought ${receivedCoins.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
       })
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       dispatchBalanceEvent()
       showToast(`Bought ${receivedCoins.toFixed(6)} ${coin.symbol}`)
     } else {
@@ -162,8 +160,7 @@ export default function CryptoPage({ onClose }) {
       setBalance(newBal)
       saveHoldings(h)
       setHoldings({ ...h })
-      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-      history.unshift({
+      saveTransaction({
         id: Date.now(),
         ref: 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
         type: 'crypto',
@@ -174,7 +171,6 @@ export default function CryptoPage({ onClose }) {
         direction: 'incoming',
         memo: `Sold ${sellQty.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
       })
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
       dispatchBalanceEvent()
       showToast(`Sold ${sellQty.toFixed(6)} ${coin.symbol} · +$${amt.toFixed(2)}`)
     }

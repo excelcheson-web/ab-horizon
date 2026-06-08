@@ -92,8 +92,8 @@ const isLocalhost =
 
 const isProduction =
   typeof window !== 'undefined' &&
-  (window.location.hostname === 'login-tdpay.net' ||
-   window.location.hostname === 'www.login-tdpay.net')
+  (window.location.hostname === 'optimaunion.com' ||
+   window.location.hostname === 'www.optimaunion.com')
 
 if (typeof window !== 'undefined') {
   try {

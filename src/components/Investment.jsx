@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { sendTransferEmail } from '../services/emailNotification'
+import { saveTransaction } from '../services/transactionService'
 
-const HISTORY_KEY = 'transfer_history'
 const PORTFOLIO_KEY = 'investment_portfolio'
 
 function genRef() {
@@ -92,6 +92,7 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
       amount: total,
       balanceAfter: newBalance,
       date: new Date().toISOString(),
+      direction: 'outgoing',
     }
 
     setIsLoading(true)
@@ -100,10 +101,7 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
     setTimeout(() => setLoadingMsg('Confirming with exchange…'), 3800)
 
     setTimeout(() => {
-    // Save to transfer history
-    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    history.unshift(txn)
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    saveTransaction(txn)
 
     // Save to portfolio
     const port = getPortfolio()
