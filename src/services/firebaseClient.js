@@ -17,9 +17,12 @@ const firebaseConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const app = initializeApp(firebaseConfig)
+const adminApp = initializeApp(firebaseConfig, 'admin')
 
 export const auth = getAuth(app)
 export const db   = getFirestore(app)
+export const adminAuth = getAuth(adminApp)
+export const adminDb   = getFirestore(adminApp)
 
 // ── Global Circuit Breaker for Firestore Quota Management ────────────────────
 // This prevents resource-exhausted errors by tracking failures and stopping
@@ -103,6 +106,10 @@ if (typeof window !== 'undefined') {
       // Token: 'B9C21B4E-3D2A-4F8E-9B6C-7A1D5E0F3C8B'
       self.FIREBASE_APPCHECK_DEBUG_TOKEN = 'B9C21B4E-3D2A-4F8E-9B6C-7A1D5E0F3C8B'
       initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider('6LekIpIsAAAAANyoVvklRU5sfyjht_NCUp-roZOu'),
+        isTokenAutoRefreshEnabled: true,
+      })
+      initializeAppCheck(adminApp, {
         provider: new ReCaptchaV3Provider('6LekIpIsAAAAANyoVvklRU5sfyjht_NCUp-roZOu'),
         isTokenAutoRefreshEnabled: true,
       })

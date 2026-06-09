@@ -106,6 +106,23 @@ function withTimeout(promise, ms) {
   ])
 }
 
+function getCachedProfileForUid(uid) {
+  try {
+    const cached = localStorage.getItem('securebank_user')
+    if (!cached) return null
+    const parsed = JSON.parse(cached)
+    const cachedUid = parsed.uid || parsed.id || ''
+    return cachedUid === uid ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function getCachedNameForUid(uid) {
+  const cached = getCachedProfileForUid(uid)
+  return cached?.full_name || cached?.name || ''
+}
+
 export async function loginUser(email, password) {
   if (!email || !password) {
     throw new Error('Email and password are required to log in.')
@@ -127,7 +144,7 @@ export async function loginUser(email, password) {
     // If the Firestore doc was created by safeUpdateBalance (only has { balance }),
     // it will be missing full_name / email / accountNumber. Supplement from auth user.
     if (!data.full_name && !data.name) {
-      const storedName = (() => { try { return localStorage.getItem('user_name') || '' } catch { return '' } })()
+      const storedName = getCachedNameForUid(user.uid)
       data.full_name = user.displayName || storedName || (user.email ? user.email.split('@')[0] : '') || 'Account Holder'
       data.email = data.email || user.email || email
       data.accountNumber = data.accountNumber || generateAccountNumber()
@@ -144,23 +161,18 @@ export async function loginUser(email, password) {
   }
 
   // Fallback: try localStorage profile (written during registration)
-  try {
-    const cached = localStorage.getItem('securebank_user')
-    if (cached) {
-      const parsed = JSON.parse(cached)
-      if (parsed.uid === user.uid) {
-        console.log('[loginUser] Using cached profile from localStorage')
-        return parsed
-      }
-    }
-  } catch { /* silent */ }
+  const cachedProfile = getCachedProfileForUid(user.uid)
+  if (cachedProfile) {
+    console.log('[loginUser] Using cached profile from localStorage')
+    return cachedProfile
+  }
 
   // Last resort: construct a basic profile from the Firebase Auth user object.
   // This handles the case where Firestore is unavailable (App Check / timeout)
   // AND localStorage has no cached profile (different browser, cleared storage).
   console.warn('[loginUser] No Firestore or localStorage profile — constructing from auth user')
   // Prefer the stored user_name (set during registration) over the email prefix
-  const storedName = (() => { try { return localStorage.getItem('user_name') || '' } catch { return '' } })()
+  const storedName = getCachedNameForUid(user.uid)
   const fallbackProfile = normalizeProfile(user.uid, {
     email:         user.email || email,
     full_name:     user.displayName || storedName || email.split('@')[0] || 'User',
