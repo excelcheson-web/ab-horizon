@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
+import { saveTransaction } from '../services/transactionService'
 
 const SCHEDULED_KEY = 'scheduled_transfers'
-const HISTORY_KEY = 'transfer_history'
 
 function genRef() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -73,9 +73,7 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
         if (amt <= bal) {
           bal -= amt
           changed = true
-          // Save to history
-          const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-          history.unshift({
+          saveTransaction({
             id: Date.now(),
             ref: item.ref,
             type: 'scheduled',
@@ -85,8 +83,8 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
             amount: amt,
             balanceAfter: bal,
             date: new Date().toISOString(),
+            direction: 'outgoing',
           })
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
 
           // For recurring, compute next date
           if (item.frequency !== 'once') {

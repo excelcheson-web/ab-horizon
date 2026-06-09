@@ -9,6 +9,8 @@ import {
 import { PrivacyPolicyModal, TermsOfServiceModal, CookiePolicyModal, ComplianceModal } from './LegalModals'
 import { ContactUsModal, SupportCenterModal } from './ContactModals'
 
+const APP_SESSION_KEY = 'securebank_app_session_verified'
+
 /* ── Icons ───────────────────────────────────────────────── */
 const EyeIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -159,22 +161,61 @@ export default function LoginScreen({ onLogin, onRegister }) {
     try { return JSON.parse(localStorage.getItem('securebank_user') || 'null') } catch { return null }
   }
 
+  const getProfileUid = (profile) => profile?.uid || profile?.id || ''
+
+  const clearCachedUserData = () => {
+    localStorage.removeItem('securebank_user')
+    localStorage.removeItem('user_account_type')
+    localStorage.removeItem('user_email')
+    localStorage.removeItem('user_name')
+    localStorage.removeItem('user_account_number')
+    localStorage.removeItem('bank_balance')
+    localStorage.removeItem('bank_balance_owner')
+    localStorage.removeItem('balance_local_update_ts')
+    localStorage.removeItem('savings_vault')
+    localStorage.removeItem('transfer_history')
+    localStorage.removeItem('deleted_transactions')
+    localStorage.removeItem('scheduled_transfers')
+    localStorage.removeItem('crypto_holdings')
+    localStorage.removeItem('investment_portfolio')
+    localStorage.removeItem('securebank_loans')
+    localStorage.removeItem('securebank_financial_investments')
+    localStorage.removeItem('securebank_notifications')
+    localStorage.removeItem('email_notifications_log')
+    localStorage.removeItem('securebank_admin')
+    localStorage.removeItem('user_feature_flags')
+    localStorage.removeItem('biometric_cred_id')
+    localStorage.removeItem('biometric_email')
+    localStorage.removeItem('biometric_prompt_shown')
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault(); setError('')
     setLoading(true); setLoadingMsg('Verifying credentials…')
     try {
       setTimeout(() => setLoadingMsg('Authenticating with server…'), 2000)
       setTimeout(() => setLoadingMsg('Establishing secure session…'), 3800)
+      const previousUser = getStoredUser()
+      const previousUid = getProfileUid(previousUser)
+      const previousBalanceOwner = localStorage.getItem('bank_balance_owner') || previousUid
+      try { sessionStorage.setItem(APP_SESSION_KEY, 'true') } catch { /* silent */ }
       const profile = await loginUser(email.trim(), password)
+      const profileUid = getProfileUid(profile)
+      const sameCachedUser = !!profileUid && previousUid === profileUid && (!previousBalanceOwner || previousBalanceOwner === profileUid)
+      if (profileUid && previousBalanceOwner && previousBalanceOwner !== profileUid) {
+        clearCachedUserData()
+      }
       localStorage.setItem('securebank_user',   JSON.stringify(profile))
       localStorage.setItem('user_account_type', profile.accountType)
       localStorage.setItem('user_email',        profile.email)
       localStorage.setItem('user_name',         profile.name)
-      const eb = parseFloat(localStorage.getItem('bank_balance') || '0')
+      const eb = sameCachedUser ? parseFloat(localStorage.getItem('bank_balance') || '0') : 0
       const pb = parseFloat(profile.balance || 0)
       localStorage.setItem('bank_balance', String(Math.max(eb, pb)))
+      localStorage.setItem('bank_balance_owner', profileUid)
       setTimeout(() => { setLoading(false); setLoadingMsg(''); onLogin(profile) }, 5000)
     } catch (err) {
+      try { sessionStorage.removeItem(APP_SESSION_KEY) } catch { /* silent */ }
       setLoading(false); setLoadingMsg('')
       const c = err.code || ''
       if (c === 'auth/user-not-found' || c === 'auth/invalid-credential' || c === 'auth/wrong-password') setError('Invalid email or password.')

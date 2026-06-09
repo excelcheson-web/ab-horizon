@@ -10,14 +10,14 @@ import { db } from './firebaseClient'
 import { doc, setDoc, collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore'
 
 const HISTORY_KEY = 'transfer_history'
+const DELETED_TXNS_KEY = 'deleted_transactions'
+const GLOBAL_DELETED_BUCKET = '__global'
+const SYNC_PENDING_FIELD = '_syncPending'
 
-// Store active listeners for cleanup
 const activeListeners = new Map()
-
-// Debounced write queue for Firestore operations
 const writeQueue = new Map()
 const writeTimeouts = new Map()
-const MIN_WRITE_INTERVAL = 5000 // 5 seconds between writes to same doc
+const MIN_WRITE_INTERVAL = 5000
 
 /** Read the current user's UID from localStorage. */
 function getUid() {
@@ -25,6 +25,165 @@ function getUid() {
     const u = JSON.parse(localStorage.getItem('securebank_user') || '{}')
     return u.uid || u.id || null
   } catch { return null }
+}
+
+function getTxnId(txn) {
+  const id = txn?.id ?? txn?.ref
+  return id === undefined || id === null ? '' : String(id)
+}
+
+function readLocalTransactions() {
+  try {
+    const txns = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    return Array.isArray(txns) ? txns : []
+  } catch {
+    return []
+  }
+}
+
+function dispatchHistoryEvent(txns) {
+  if (typeof window === 'undefined') return
+  try {
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: HISTORY_KEY,
+      newValue: JSON.stringify(txns),
+    }))
+  } catch {
+    // Some older browsers are fussy about constructing StorageEvent.
+  }
+}
+
+function writeLocalTransactions(txns) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(txns))
+    dispatchHistoryEvent(txns)
+  } catch { /* silent */ }
+}
+
+function readDeletedBuckets() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DELETED_TXNS_KEY) || '{}')
+    if (Array.isArray(raw)) {
+      return { [GLOBAL_DELETED_BUCKET]: raw.map(String) }
+    }
+    if (!raw || typeof raw !== 'object') return {}
+    return Object.fromEntries(
+      Object.entries(raw).map(([uid, ids]) => [
+        uid,
+        Array.isArray(ids) ? ids.map(String) : [],
+      ])
+    )
+  } catch {
+    return {}
+  }
+}
+
+function getDeletedBucket(uid) {
+  return uid ? String(uid) : GLOBAL_DELETED_BUCKET
+}
+
+function getDeletedIdsFromStorage(uid) {
+  const buckets = readDeletedBuckets()
+  const ids = new Set(buckets[GLOBAL_DELETED_BUCKET] || [])
+  if (uid) {
+    const uidDeletedIds = buckets[String(uid)] || []
+    uidDeletedIds.forEach((id) => ids.add(String(id)))
+  }
+  return ids
+}
+
+function storeDeletedIds(uid, ids) {
+  try {
+    const buckets = readDeletedBuckets()
+    buckets[getDeletedBucket(uid)] = Array.from(ids).map(String)
+    localStorage.setItem(DELETED_TXNS_KEY, JSON.stringify(buckets))
+  } catch { /* silent */ }
+}
+
+function stripLocalMetadata(txn) {
+  const clean = { ...(txn || {}) }
+  delete clean[SYNC_PENDING_FIELD]
+  return clean
+}
+
+function sortTransactions(txns) {
+  return [...txns].sort((a, b) => {
+    const at = new Date(a?.date || 0).getTime() || 0
+    const bt = new Date(b?.date || 0).getTime() || 0
+    return bt - at
+  })
+}
+
+function pruneDeletedTransactions(txns, deletedIds) {
+  return txns.filter((txn) => {
+    const id = getTxnId(txn)
+    return id && !deletedIds.has(id)
+  })
+}
+
+function markTransactionSynced(txnId) {
+  const id = String(txnId)
+  const history = readLocalTransactions()
+  let changed = false
+  const updated = history.map((txn) => {
+    if (getTxnId(txn) !== id || txn[SYNC_PENDING_FIELD] !== true) return txn
+    changed = true
+    return stripLocalMetadata(txn)
+  })
+  if (changed) writeLocalTransactions(updated)
+}
+
+async function loadDeletedTransactionIds(uid) {
+  const localDeletedIds = getDeletedIdsFromStorage(uid)
+  if (!uid) return localDeletedIds
+
+  try {
+    const snap = await Promise.race([
+      getDocs(collection(db, 'profiles', uid, 'deletedTransactions')),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+    ])
+
+    const merged = new Set(localDeletedIds)
+    snap.docs.forEach((d) => {
+      merged.add(String(d.id))
+      const dataId = d.data()?.id
+      if (dataId !== undefined && dataId !== null) merged.add(String(dataId))
+    })
+    storeDeletedIds(uid, merged)
+    return merged
+  } catch (err) {
+    console.warn('[transactionService] Deleted transaction load failed:', err.message)
+    return localDeletedIds
+  }
+}
+
+function backfillPendingLocalTransaction(uid, txn) {
+  const id = getTxnId(txn)
+  if (!uid || !id || txn[SYNC_PENDING_FIELD] !== true) return
+
+  setDoc(doc(db, 'profiles', uid, 'transactions', id), stripLocalMetadata(txn))
+    .then(() => markTransactionSynced(id))
+    .catch(() => {})
+}
+
+export function rememberDeletedTransaction(txnId, uid = getUid()) {
+  const id = String(txnId)
+  const deletedIds = getDeletedIdsFromStorage(uid)
+  deletedIds.add(id)
+  storeDeletedIds(uid, deletedIds)
+  removeTransactionFromLocalHistory(id, uid)
+}
+
+export function removeTransactionFromLocalHistory(txnId, uid = null) {
+  if (uid) {
+    const currentUid = getUid()
+    if (!currentUid || String(currentUid) !== String(uid)) return
+  }
+
+  const id = String(txnId)
+  const history = readLocalTransactions()
+  const updated = history.filter((txn) => getTxnId(txn) !== id)
+  if (updated.length !== history.length) writeLocalTransactions(updated)
 }
 
 /**
@@ -65,22 +224,27 @@ function debouncedWrite(key, operation, delay = 5000) {
  * Call this instead of directly writing to localStorage in each component.
  */
 export function saveTransaction(txn) {
-  // 1. Write to localStorage immediately (always works, even offline)
+  const id = getTxnId(txn)
+  if (!id) return
+
+  const uid = getUid()
+  if (getDeletedIdsFromStorage(uid).has(id)) return
+
   try {
-    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    if (!history.find((t) => t.id === txn.id)) {
-      history.unshift(txn)
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    const history = readLocalTransactions()
+    if (!history.find((t) => getTxnId(t) === id)) {
+      history.unshift({ ...txn, [SYNC_PENDING_FIELD]: true })
+      writeLocalTransactions(history)
     }
   } catch { /* silent */ }
 
   // 2. Debounced Firestore write to prevent resource exhaustion
-  const uid = getUid()
   if (uid) {
-    const key = `txn-${uid}-${txn.id}`
+    const key = `txn-${uid}-${id}`
     debouncedWrite(key, async () => {
-      await setDoc(doc(db, 'profiles', uid, 'transactions', String(txn.id)), txn)
-      console.log(`[transactionService] Transaction ${txn.id} synced to Firestore`)
+      await setDoc(doc(db, 'profiles', uid, 'transactions', id), stripLocalMetadata(txn))
+      markTransactionSynced(id)
+      console.log(`[transactionService] Transaction ${id} synced to Firestore`)
     }, MIN_WRITE_INTERVAL)
   }
 }
@@ -90,45 +254,57 @@ export function saveTransaction(txn) {
  * sorts newest-first. Falls back to localStorage if Firestore is unavailable.
  */
 export async function loadTransactions(uid) {
-  // Always start with localStorage as the baseline
-  let localTxns = []
-  try {
-    localTxns = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-  } catch { /* silent */ }
+  let localTxns = readLocalTransactions()
+  let deletedIds = getDeletedIdsFromStorage(uid)
+  localTxns = pruneDeletedTransactions(localTxns, deletedIds)
 
-  if (!uid) return localTxns
+  if (!uid) {
+    writeLocalTransactions(localTxns)
+    return localTxns
+  }
 
   try {
     const q = query(
       collection(db, 'profiles', uid, 'transactions'),
       orderBy('date', 'desc')
     )
-    const snap = await Promise.race([
-      getDocs(q),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+    const [snap, remoteDeletedIds] = await Promise.all([
+      Promise.race([
+        getDocs(q),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+      ]),
+      loadDeletedTransactionIds(uid),
     ])
-    const firestoreTxns = snap.docs.map((d) => d.data())
+    deletedIds = remoteDeletedIds
 
-    if (firestoreTxns.length === 0 && localTxns.length === 0) return []
+    const firestoreTxns = pruneDeletedTransactions(
+      snap.docs.map((d) => {
+        const data = d.data()
+        return { ...data, id: data.id ?? d.id }
+      }),
+      deletedIds
+    )
+    localTxns = pruneDeletedTransactions(readLocalTransactions(), deletedIds)
 
-    // Merge: start with Firestore, add any local-only txns not yet synced
+    if (firestoreTxns.length === 0 && localTxns.length === 0) {
+      writeLocalTransactions([])
+      return []
+    }
+
     const merged = [...firestoreTxns]
     localTxns.forEach((lt) => {
-      if (!merged.find((ft) => String(ft.id) === String(lt.id))) {
+      const id = getTxnId(lt)
+      if (!id || merged.find((ft) => getTxnId(ft) === id)) return
+      if (lt[SYNC_PENDING_FIELD] === true) {
         merged.push(lt)
-        // Back-fill this local-only txn to Firestore (fire-and-forget)
-        setDoc(doc(db, 'profiles', uid, 'transactions', String(lt.id)), lt)
-          .catch(() => {})
+        backfillPendingLocalTransaction(uid, lt)
       }
     })
 
-    // Sort newest first
-    merged.sort((a, b) => new Date(b.date) - new Date(a.date))
+    const sorted = sortTransactions(merged)
+    writeLocalTransactions(sorted)
 
-    // Update localStorage with the merged result so it's available offline
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(merged)) } catch { /* silent */ }
-
-    return merged
+    return sorted
   } catch (err) {
     console.warn('[transactionService] Firestore load failed, using localStorage:', err.message)
     return localTxns
@@ -159,54 +335,37 @@ export function subscribeToTransactions(uid, onUpdate) {
     orderBy('date', 'desc')
   )
 
-  const unsubscribe = onSnapshot(q, (snap) => {
-    const firestoreTxns = snap.docs.map((d) => ({
-      ...d.data(),
-      id: d.id, // Ensure ID is set
-    }))
+  const unsubscribe = onSnapshot(q, async (snap) => {
+    const deletedIds = await loadDeletedTransactionIds(uid)
+    const firestoreTxns = pruneDeletedTransactions(
+      snap.docs.map((d) => {
+        const data = d.data()
+        return { ...data, id: data.id ?? d.id }
+      }),
+      deletedIds
+    )
+    const localTxns = pruneDeletedTransactions(readLocalTransactions(), deletedIds)
 
-    // Get local transactions
-    let localTxns = []
-    try {
-      localTxns = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    } catch { /* silent */ }
-
-    // Merge: Firestore takes precedence, add local-only txns
     const merged = [...firestoreTxns]
     localTxns.forEach((lt) => {
-      if (!merged.find((ft) => String(ft.id) === String(lt.id))) {
+      const id = getTxnId(lt)
+      if (!id || merged.find((ft) => getTxnId(ft) === id)) return
+      if (lt[SYNC_PENDING_FIELD] === true) {
         merged.push(lt)
-        // Back-fill to Firestore
-        setDoc(doc(db, 'profiles', uid, 'transactions', String(lt.id)), lt)
-          .catch(() => {})
+        backfillPendingLocalTransaction(uid, lt)
       }
     })
 
-    // Sort newest first
-    merged.sort((a, b) => new Date(b.date) - new Date(a.date))
+    const sorted = sortTransactions(merged)
+    writeLocalTransactions(sorted)
 
-    // Update localStorage with merged result
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(merged))
-    } catch { /* silent */ }
-
-    // Notify callback
     if (onUpdate && typeof onUpdate === 'function') {
-      onUpdate(merged)
+      onUpdate(sorted)
     }
-
-    // Broadcast event for other components
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: HISTORY_KEY,
-      newValue: JSON.stringify(merged),
-    }))
   }, (err) => {
     console.warn('[transactionService] Real-time listener error:', err.message)
     // Fall back to localStorage on error
-    let localTxns = []
-    try {
-      localTxns = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    } catch { /* silent */ }
+    const localTxns = pruneDeletedTransactions(readLocalTransactions(), getDeletedIdsFromStorage(uid))
     if (onUpdate && typeof onUpdate === 'function') {
       onUpdate(localTxns)
     }

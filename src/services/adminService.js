@@ -3,7 +3,8 @@
  * Admin panel backend functions for email-based user control.
  * All operations target specific users by UID (found via email lookup).
  */
-import { db, firestoreCircuitBreaker } from './firebaseClient'
+import { db, adminDb, adminAuth, firestoreCircuitBreaker } from './firebaseClient'
+import { rememberDeletedTransaction } from './transactionService'
 import {
   doc,
   setDoc,
@@ -158,8 +159,7 @@ export async function fetchAllUsers(options = {}) {
   const { force = false } = options
   
   // Check if user is authenticated
-  const { auth } = await import('./firebaseClient')
-  const currentUser = auth.currentUser
+  const currentUser = adminAuth.currentUser
   console.log('[adminService] Current user:', currentUser ? currentUser.uid : 'NOT LOGGED IN')
   
   if (!currentUser) {
@@ -174,7 +174,7 @@ export async function fetchAllUsers(options = {}) {
   
   try {
     console.log('[adminService] Fetching all users from Firestore...', { uid: currentUser.uid })
-    const snapshot = await getDocs(collection(db, 'profiles'))
+    const snapshot = await getDocs(collection(adminDb, 'profiles'))
     
     console.log(`[adminService] Fetched ${snapshot.docs.length} users`)
     
@@ -232,7 +232,7 @@ export async function getUserByEmail(email) {
     // Firestore doesn't support direct 'get by email' efficiently,
     // so we query with a filter
     const q = query(
-      collection(db, 'profiles'),
+      collection(adminDb, 'profiles'),
       where('email', '==', email.toLowerCase().trim())
     )
     const snapshot = await getDocs(q)
@@ -268,7 +268,7 @@ export async function getUserByEmail(email) {
 export async function getUserById(uid) {
   if (!uid) return null
   try {
-    const snap = await getDoc(doc(db, 'profiles', uid))
+    const snap = await getDoc(doc(adminDb, 'profiles', uid))
     if (!snap.exists()) return null
     const data = snap.data()
     return {
@@ -305,7 +305,7 @@ export async function updateUserBalance(uid, amount, operation = 'add') {
   const amt = parseFloat(amount)
   if (isNaN(amt) || amt < 0) throw new Error('Invalid amount')
 
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   const userSnap = await getDoc(userRef)
 
   if (!userSnap.exists()) {
@@ -382,13 +382,13 @@ export async function createTransaction(uid, txnData) {
   // Save transaction immediately (no debounce needed for this)
   await withRetry(async () => {
     await setDoc(
-      doc(db, 'profiles', uid, 'transactions', String(txn.id)),
+      doc(adminDb, 'profiles', uid, 'transactions', String(txn.id)),
       txn
     )
   })
 
   // Update user's balance based on transaction direction (debounced)
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   const userSnap = await getDoc(userRef)
   let newBalance = null
   
@@ -422,7 +422,7 @@ export async function updateTransaction(uid, txnId, txnData) {
   if (!uid || !txnId) throw new Error('User ID and Transaction ID are required')
 
   try {
-    const txnRef = doc(db, 'profiles', uid, 'transactions', String(txnId))
+    const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
     const txnSnap = await getDoc(txnRef)
     
     if (!txnSnap.exists()) {
@@ -451,7 +451,7 @@ export async function updateTransaction(uid, txnId, txnData) {
     }
 
     // Calculate balance adjustment
-    const userRef = doc(db, 'profiles', uid)
+    const userRef = doc(adminDb, 'profiles', uid)
     const userSnap = await getDoc(userRef)
     let newBalance = null
     
@@ -498,7 +498,7 @@ export async function deleteTransaction(uid, txnId) {
 
   try {
     // Get the transaction first to know the amount/direction
-    const txnRef = doc(db, 'profiles', uid, 'transactions', String(txnId))
+    const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
     const txnSnap = await getDoc(txnRef)
     
     if (!txnSnap.exists()) {
@@ -508,7 +508,7 @@ export async function deleteTransaction(uid, txnId) {
     const txn = txnSnap.data()
     
     // Adjust balance (reverse the transaction)
-    const userRef = doc(db, 'profiles', uid)
+    const userRef = doc(adminDb, 'profiles', uid)
     const userSnap = await getDoc(userRef)
     let newBalance = null
     
@@ -534,6 +534,19 @@ export async function deleteTransaction(uid, txnId) {
     await withRetry(async () => {
       await deleteDoc(txnRef)
     })
+
+    try {
+      await withRetry(async () => {
+        await setDoc(doc(adminDb, 'profiles', uid, 'deletedTransactions', String(txnId)), {
+          id: String(txnId),
+          deletedAt: new Date().toISOString(),
+        })
+      })
+    } catch (err) {
+      console.warn('[adminService] deleteTransaction tombstone failed:', err.message)
+    }
+
+    rememberDeletedTransaction(txnId, uid)
     
     return { success: true, message: 'Transaction deleted and balance adjusted' }
   } catch (err) {
@@ -550,7 +563,7 @@ export async function getUserTransactions(uid) {
   
   try {
     const q = query(
-      collection(db, 'profiles', uid, 'transactions'),
+      collection(adminDb, 'profiles', uid, 'transactions'),
       orderBy('date', 'desc')
     )
     const snapshot = await getDocs(q)
@@ -579,7 +592,7 @@ export async function toggleUserSuspension(uid, suspended, customMessage = '') {
     suspendedAt: suspended ? new Date().toISOString() : null,
   }
   
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   await withRetry(async () => {
     await updateDoc(userRef, updates)
   })
@@ -615,7 +628,7 @@ export async function updateFeatureFlags(uid, flags) {
   const currentFlags = getDefaultFeatureFlags()
   const newFlags = { ...currentFlags, ...flags }
   
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   await withRetry(async () => {
     await updateDoc(userRef, { featureFlags: newFlags })
   })
@@ -641,7 +654,7 @@ export async function getUserFeatureFlags(uid) {
   if (!uid) return getDefaultFeatureFlags()
   
   try {
-    const snap = await getDoc(doc(db, 'profiles', uid))
+    const snap = await getDoc(doc(adminDb, 'profiles', uid))
     if (!snap.exists()) return getDefaultFeatureFlags()
     return { ...getDefaultFeatureFlags(), ...(snap.data().featureFlags || {}) }
   } catch (err) {
@@ -658,7 +671,7 @@ export async function getUserFeatureFlags(uid) {
 export async function updateUserAccountType(uid, accountType) {
   if (!uid) throw new Error('User ID is required')
 
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   await withRetry(async () => {
     await updateDoc(userRef, { accountType })
   })
@@ -674,7 +687,7 @@ export async function updateUserAccountType(uid, accountType) {
 export async function updateUserProfilePicture(uid, profilePicUrl) {
   if (!uid) throw new Error('User ID is required')
 
-  const userRef = doc(db, 'profiles', uid)
+  const userRef = doc(adminDb, 'profiles', uid)
   await withRetry(async () => {
     await updateDoc(userRef, { profilePic: profilePicUrl })
   })

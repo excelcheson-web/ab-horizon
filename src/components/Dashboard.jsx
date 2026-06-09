@@ -52,6 +52,13 @@ function getAdminData() {
   } catch { return {} }
 }
 
+function cleanSuspendReason(value) {
+  return String(value || '')
+    .replace(/(^|\n)\s*for assistance\s*:?\s*(?:\+?1[-.\s]*)?800[-.\s]*555[-.\s]*0199\.?\s*/gi, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim()
+}
+
 /* ── Inline SVG icons ────────────────────────────────────── */
 const BackIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -790,12 +797,8 @@ export default function Dashboard({ profile, onLogout }) {
               <h2 className="suspend-title">Transaction Blocked</h2>
             </div>
             <p className="suspend-msg">
-              {suspendReason || admin.suspendReason || 'Your account has been restricted from making transactions. Please contact support for assistance.'}
+              {cleanSuspendReason(suspendReason || admin.suspendReason) || 'Your account has been restricted from making transactions.'}
             </p>
-            <div className="suspend-contact">
-              <span>For assistance: </span>
-              <strong>1-800-555-0199</strong>
-            </div>
           </div>
         </div>
       )}

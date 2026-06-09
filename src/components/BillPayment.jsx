@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
-
-const HISTORY_KEY = 'transfer_history'
+import { saveTransaction } from '../services/transactionService'
 
 function genRef() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -96,12 +95,11 @@ export default function BillPayment({ balance, onClose, onBalanceUpdate }) {
       amount: amt,
       balanceAfter: newBalance,
       memo: form.memo.trim(),
+      direction: 'outgoing',
       date: new Date().toISOString(),
     }
 
-    const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
-    history.unshift(txn)
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    saveTransaction(txn)
 
     localStorage.setItem('bank_balance', String(newBalance))
     window.dispatchEvent(new StorageEvent('storage', {

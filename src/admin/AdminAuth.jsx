@@ -6,7 +6,7 @@ import {
   signOut,
   sendPasswordResetEmail,
 } from 'firebase/auth'
-import { auth } from '../services/firebaseClient'
+import { adminAuth as auth } from '../services/firebaseClient'
 import AdminApp from './App.jsx'
 
 // ── Admin identity ─────────────────────────────────────────
@@ -17,11 +17,16 @@ const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'karladelbert83@gmail.co
 // localStorage keys
 const SETUP_KEY   = 'admin_setup_complete'
 const REVOKED_KEY = 'admin_access_revoked'
+const APP_SESSION_KEY = 'securebank_app_session_verified'
 
 // sessionStorage key — cleared when tab/browser closes.
-// Firebase auth persists across tabs (main app shares the session),
-// so we require a separate explicit admin sign-in per browser session.
+// Admin auth is isolated from the customer app and still requires an
+// explicit admin sign-in per browser session.
 const SESSION_KEY = 'admin_session_verified'
+
+function clearCustomerAppSession() {
+  try { sessionStorage.removeItem(APP_SESSION_KEY) } catch { /* silent */ }
+}
 
 /* ── Shared field ──────────────────────────────────────────── */
 function Field({ label, type = 'text', value, onChange, placeholder, autoFocus }) {
@@ -145,12 +150,16 @@ export default function AdminAuth() {
 
   const handleLogout = async () => {
     sessionStorage.removeItem(SESSION_KEY)
+    clearCustomerAppSession()
+    try { await signOut(auth) } catch { /* silent */ }
     setStatus('login')
   }
 
   const handleRevoke = async () => {
     if (!window.confirm('Revoke admin access? You will need your admin credentials to restore it.')) return
     sessionStorage.removeItem(SESSION_KEY)
+    clearCustomerAppSession()
+    try { await signOut(auth) } catch { /* silent */ }
     localStorage.setItem(REVOKED_KEY, 'true')
     setStatus('revoked')
   }
@@ -164,8 +173,8 @@ export default function AdminAuth() {
     </div>
   )
 
-  if (status === 'setup')   return <SetupScreen   onDone={() => { localStorage.setItem(SETUP_KEY,'true'); sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} />
-  if (status === 'login')   return <LoginScreen   onAuthed={() => { sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} onNeedSetup={() => setStatus('setup')} />
+  if (status === 'setup')   return <SetupScreen   onDone={() => { clearCustomerAppSession(); localStorage.setItem(SETUP_KEY,'true'); sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} />
+  if (status === 'login')   return <LoginScreen   onAuthed={() => { clearCustomerAppSession(); sessionStorage.setItem(SESSION_KEY,'true'); setStatus('authed') }} onNeedSetup={() => setStatus('setup')} />
   if (status === 'revoked') return <RevokedScreen onRestored={() => { localStorage.removeItem(REVOKED_KEY); setStatus('login') }} />
   return <AdminApp onLogout={handleLogout} onRevoke={handleRevoke} />
 }
