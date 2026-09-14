@@ -1,33 +1,20 @@
 import { useState, useMemo } from 'react'
 import { saveTransaction } from '../services/transactionService'
 
-const BALANCE_KEY = 'bank_balance'
 const LOANS_KEY = 'securebank_loans'
 const INVESTMENTS_KEY = 'securebank_financial_investments'
 
-function dispatchBalanceEvent() {
-  window.dispatchEvent(new StorageEvent('storage', {
-    key: BALANCE_KEY,
-    newValue: localStorage.getItem(BALANCE_KEY),
-    storageArea: localStorage,
-  }))
-}
 function getActiveLoans() {
   try { return JSON.parse(localStorage.getItem(LOANS_KEY) || '[]').filter((l) => l.status === 'active') }
   catch { return [] }
 }
 
-function getBalance() {
-  return parseFloat(localStorage.getItem(BALANCE_KEY) || '0')
-}
-function setBalance(v) {
-  localStorage.setItem(BALANCE_KEY, v.toFixed(2))
-}
 function fmt(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
-function getUser() {
-  try { return JSON.parse(localStorage.getItem('securebank_user') || '{}') } catch { return {} }
+
+function genPaymentRef() {
+  return `PMT-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 }
 
 const BackIcon = () => (
@@ -103,7 +90,7 @@ const LOAN_TERMS = [
   { months: 60, apr: 7.9 },
 ]
 
-export default function FinancialServices({ onClose, onBalanceUpdate }) {
+export default function FinancialServices({ balance = 0, onClose, onBalanceUpdate }) {
   const [activeView, setActiveView] = useState('menu') // menu | loan | pension | fund | money_market
   const [loanAmount, setLoanAmount] = useState('')
   const [loanTerm, setLoanTerm] = useState(LOAN_TERMS[0])
@@ -134,12 +121,9 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
     const amt = parseFloat(loanAmount)
     if (!amt || amt < 500 || amt > 50000) return
     setLoanProcessing(true)
-    setTimeout(() => {
-      const bal = getBalance()
+    setTimeout(async () => {
+      const bal = Number(balance) || 0
       const newBal = bal + amt
-      setBalance(newBal)
-      // Save loan record
-      const loans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
       const loan = {
         id: `LN-${Date.now()}`,
         amount: amt,
@@ -151,70 +135,81 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         date: new Date().toISOString(),
         status: 'active',
       }
-      loans.push(loan)
-      localStorage.setItem(LOANS_KEY, JSON.stringify(loans))
-      saveTransaction({
-        id: loan.id,
-        ref: loan.id,
-        type: 'loan_disbursement',
-        beneficiary: 'Optima Personal Loan',
-        amount: amt,
-        balanceAfter: newBal,
-        date: loan.date,
-        direction: 'incoming',
-        memo: `${loanTerm.months}-month loan at ${loanTerm.apr}% APR`,
-      })
-      if (onBalanceUpdate) onBalanceUpdate(newBal)
-      dispatchBalanceEvent()
-      setLoanProcessing(false)
-      setLoanSuccess(loan)
-      setActiveLoans(getActiveLoans())
+      try {
+        const committed = await saveTransaction({
+          id: loan.id,
+          ref: loan.id,
+          type: 'loan_disbursement',
+          beneficiary: 'Optima Personal Loan',
+          amount: amt,
+          balanceAfter: newBal,
+          date: loan.date,
+          direction: 'incoming',
+          memo: `${loanTerm.months}-month loan at ${loanTerm.apr}% APR`,
+        })
+        const nextBalance = committed.balanceAfter ?? newBal
+
+        const loans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
+        loans.push(loan)
+        localStorage.setItem(LOANS_KEY, JSON.stringify(loans))
+        onBalanceUpdate?.(nextBalance)
+        setLoanProcessing(false)
+        setLoanSuccess(loan)
+        setActiveLoans(getActiveLoans())
+      } catch (err) {
+        setLoanProcessing(false)
+        alert(err.message || 'Loan disbursement failed. Please try again.')
+      }
     }, 5000)
   }
 
-  function handleLoanPayment(loanId) {
+  async function handleLoanPayment(loanId) {
     const allLoans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
     const idx = allLoans.findIndex((l) => l.id === loanId)
     if (idx === -1) return
     const loan = allLoans[idx]
     const payment = loan.monthlyPayment
-    const bal = getBalance()
+    const bal = Number(balance) || 0
     if (payment > bal) return
     const newBal = bal - payment
-    setBalance(newBal)
     const newRemaining = (loan.remainingMonths || loan.term) - 1
-    allLoans[idx] = {
-      ...loan,
-      remainingMonths: newRemaining,
-      status: newRemaining <= 0 ? 'paid' : 'active',
+    const ref = genPaymentRef()
+
+    try {
+      const committed = await saveTransaction({
+        id: ref,
+        ref,
+        type: 'loan_payment',
+        beneficiary: 'Loan Repayment',
+        amount: payment,
+        balanceAfter: newBal,
+        date: new Date().toISOString(),
+        direction: 'outgoing',
+        memo: `Monthly payment for ${loan.id}${newRemaining <= 0 ? ' – FULLY PAID' : ` – ${newRemaining} months remaining`}`,
+      })
+      const nextBalance = committed.balanceAfter ?? newBal
+
+      allLoans[idx] = {
+        ...loan,
+        remainingMonths: newRemaining,
+        status: newRemaining <= 0 ? 'paid' : 'active',
+      }
+      localStorage.setItem(LOANS_KEY, JSON.stringify(allLoans))
+      onBalanceUpdate?.(nextBalance)
+      setActiveLoans(getActiveLoans())
+    } catch (err) {
+      alert(err.message || 'Loan payment failed. Please try again.')
     }
-    localStorage.setItem(LOANS_KEY, JSON.stringify(allLoans))
-    saveTransaction({
-      id: Date.now(),
-      ref: `PMT-${Math.random().toString(36).slice(2,8).toUpperCase()}`,
-      type: 'loan_payment',
-      beneficiary: 'Loan Repayment',
-      amount: payment,
-      balanceAfter: newBal,
-      date: new Date().toISOString(),
-      direction: 'outgoing',
-      memo: `Monthly payment for ${loan.id}${newRemaining <= 0 ? ' – FULLY PAID' : ` – ${newRemaining} months remaining`}`,
-    })
-    if (onBalanceUpdate) onBalanceUpdate(newBal)
-    dispatchBalanceEvent()
-    setActiveLoans(getActiveLoans())
   }
 
   function handleInvest(manager, type) {
     const amt = parseFloat(investAmount)
     if (!amt || amt < manager.minInvest) return
-    const bal = getBalance()
+    const bal = Number(balance) || 0
     if (amt > bal) return
     setInvestProcessing(true)
-    setTimeout(() => {
+    setTimeout(async () => {
       const newBal = bal - amt
-      setBalance(newBal)
-      const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
       const inv = {
         id: `FI-${Date.now()}`,
         type,
@@ -224,36 +219,41 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         date: new Date().toISOString(),
         status: 'active',
       }
-      investments.push(inv)
-      localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
-      saveTransaction({
-        id: inv.id,
-        ref: inv.id,
-        type: 'investment',
-        beneficiary: manager.name,
-        amount: amt,
-        balanceAfter: newBal,
-        date: inv.date,
-        direction: 'outgoing',
-        memo: `${type === 'pension' ? 'Pension' : 'Fund'} investment – ${manager.returnRate} expected return`,
-      })
-      if (onBalanceUpdate) onBalanceUpdate(newBal)
-      dispatchBalanceEvent()
-      setInvestProcessing(false)
-      setInvestSuccess(inv)
+      try {
+        const committed = await saveTransaction({
+          id: inv.id,
+          ref: inv.id,
+          type: 'investment',
+          beneficiary: manager.name,
+          amount: amt,
+          balanceAfter: newBal,
+          date: inv.date,
+          direction: 'outgoing',
+          memo: `${type === 'pension' ? 'Pension' : 'Fund'} investment – ${manager.returnRate} expected return`,
+        })
+        const nextBalance = committed.balanceAfter ?? newBal
+
+        const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
+        investments.push(inv)
+        localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
+        onBalanceUpdate?.(nextBalance)
+        setInvestProcessing(false)
+        setInvestSuccess(inv)
+      } catch (err) {
+        setInvestProcessing(false)
+        alert(err.message || 'Investment failed. Please try again.')
+      }
     }, 5000)
   }
 
   function handleMmInvest() {
     const amt = parseFloat(mmAmount)
     if (!amt || amt < MONEY_MARKET.minDeposit) return
-    const bal = getBalance()
+    const bal = Number(balance) || 0
     if (amt > bal) return
     setMmProcessing(true)
-    setTimeout(() => {
+    setTimeout(async () => {
       const newBal = bal - amt
-      setBalance(newBal)
-      const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
       const inv = {
         id: `MM-${Date.now()}`,
         type: 'money_market',
@@ -263,23 +263,30 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         date: new Date().toISOString(),
         status: 'active',
       }
-      investments.push(inv)
-      localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
-      saveTransaction({
-        id: inv.id,
-        ref: inv.id,
-        type: 'investment',
-        beneficiary: MONEY_MARKET.name,
-        amount: amt,
-        balanceAfter: newBal,
-        date: inv.date,
-        direction: 'outgoing',
-        memo: `Money market fund – ${MONEY_MARKET.apy}% APY`,
-      })
-      if (onBalanceUpdate) onBalanceUpdate(newBal)
-      dispatchBalanceEvent()
-      setMmProcessing(false)
-      setMmSuccess(inv)
+      try {
+        const committed = await saveTransaction({
+          id: inv.id,
+          ref: inv.id,
+          type: 'investment',
+          beneficiary: MONEY_MARKET.name,
+          amount: amt,
+          balanceAfter: newBal,
+          date: inv.date,
+          direction: 'outgoing',
+          memo: `Money market fund – ${MONEY_MARKET.apy}% APY`,
+        })
+        const nextBalance = committed.balanceAfter ?? newBal
+
+        const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
+        investments.push(inv)
+        localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
+        onBalanceUpdate?.(nextBalance)
+        setMmProcessing(false)
+        setMmSuccess(inv)
+      } catch (err) {
+        setMmProcessing(false)
+        alert(err.message || 'Money market investment failed. Please try again.')
+      }
     }, 5000)
   }
 
@@ -421,7 +428,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
                   const remaining = loan.remainingMonths != null ? loan.remainingMonths : total
                   const paid = total - remaining
                   const pct = Math.min(100, Math.round((paid / total) * 100))
-                  const canPay = getBalance() >= loan.monthlyPayment
+                  const canPay = (Number(balance) || 0) >= loan.monthlyPayment
                   return (
                     <div key={loan.id} className="loan-active-card">
                       <div className="loan-active-head">
@@ -550,7 +557,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
     }
 
     if (selectedManager) {
-      const bal = getBalance()
+      const bal = Number(balance) || 0
       const minAmt = selectedManager.minInvest
       return (
         <div className="fs-overlay">
@@ -653,7 +660,7 @@ export default function FinancialServices({ onClose, onBalanceUpdate }) {
         </div>
       )
     }
-    const bal = getBalance()
+    const bal = Number(balance) || 0
     return (
       <div className="fs-overlay">
         <div className="fs-page">

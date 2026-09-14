@@ -78,46 +78,47 @@ export default function BillPayment({ balance, onClose, onBalanceUpdate }) {
     const newBalance = balance - amt
     const ref = genRef()
 
+    setError('')
     setIsLoading(true)
     setLoadingMsg('Processing bill payment…')
     setTimeout(() => setLoadingMsg('Verifying with biller…'), 2000)
     setTimeout(() => setLoadingMsg('Finalizing payment…'), 3800)
 
-    setTimeout(() => {
-    const txn = {
-      id: Date.now(),
-      ref,
-      type: 'bill_payment',
-      category: 'Bill Pay',
-      beneficiary: selectedBiller.name,
-      accountNumber: form.accountNo.trim(),
-      bankName: selectedBiller.category,
-      amount: amt,
-      balanceAfter: newBalance,
-      memo: form.memo.trim(),
-      direction: 'outgoing',
-      date: new Date().toISOString(),
-    }
+    setTimeout(async () => {
+      const txn = {
+        id: Date.now(),
+        ref,
+        type: 'bill_payment',
+        category: 'Bill Pay',
+        beneficiary: selectedBiller.name,
+        accountNumber: form.accountNo.trim(),
+        bankName: selectedBiller.category,
+        amount: amt,
+        balanceAfter: newBalance,
+        memo: form.memo.trim(),
+        direction: 'outgoing',
+        date: new Date().toISOString(),
+      }
 
-    saveTransaction(txn)
+      try {
+        const committed = await saveTransaction(txn)
+        const nextBalance = committed.balanceAfter ?? newBalance
 
-    localStorage.setItem('bank_balance', String(newBalance))
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'bank_balance',
-      newValue: String(newBalance),
-    }))
-    onBalanceUpdate(newBalance)
+        onBalanceUpdate(nextBalance)
 
-    // Send notification
-    const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
-    notifs.push({ type: 'debit', amount: formatCurrency(amt), newBalance: formatCurrency(newBalance), read: false })
-    localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
-    window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
+        const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
+        notifs.push({ type: 'debit', amount: formatCurrency(amt), newBalance: formatCurrency(nextBalance), read: false })
+        localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
+        window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
 
-    sendTransferEmail(txn)
-    setIsLoading(false)
-    setReceipt(txn)
-    setStep('receipt')
+        sendTransferEmail(committed)
+        setIsLoading(false)
+        setReceipt(committed)
+        setStep('receipt')
+      } catch (err) {
+        setIsLoading(false)
+        setError(err.message || 'Bill payment failed. Please try again.')
+      }
     }, 5000)
   }
 
@@ -198,6 +199,7 @@ export default function BillPayment({ balance, onClose, onBalanceUpdate }) {
             <button className="tf-btn tf-btn--ghost" onClick={() => setStep('form')}>← Back</button>
             <button className="tf-btn tf-btn--primary" onClick={handleConfirm}>Pay Now</button>
           </div>
+          {error && <div className="tf-error">{error}</div>}
         </div>
       </div>
     )

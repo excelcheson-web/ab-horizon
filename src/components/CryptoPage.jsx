@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { saveTransaction } from '../services/transactionService'
 
-const BALANCE_KEY = 'bank_balance'
 const HOLDINGS_KEY = 'crypto_holdings'
 
 const CRYPTO_BASE = [
@@ -13,12 +12,6 @@ const CRYPTO_BASE = [
   { symbol: 'LINK', name: 'Chainlink', price: 14.56,    change: +0.9, color: '#2a5ada' },
 ]
 
-function getBalance() {
-  return parseFloat(localStorage.getItem(BALANCE_KEY) || '0')
-}
-function setBalance(v) {
-  localStorage.setItem(BALANCE_KEY, v.toFixed(2))
-}
 function getHoldings() {
   try {
     const h = JSON.parse(localStorage.getItem(HOLDINGS_KEY) || '{}')
@@ -33,13 +26,6 @@ function getHoldings() {
 }
 function saveHoldings(h) {
   localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h))
-}
-function dispatchBalanceEvent() {
-  window.dispatchEvent(new StorageEvent('storage', {
-    key: BALANCE_KEY,
-    newValue: localStorage.getItem(BALANCE_KEY),
-    storageArea: localStorage,
-  }))
 }
 
 const BackIcon = () => (
@@ -65,12 +51,13 @@ const CloseIcon = () => (
   </svg>
 )
 
-export default function CryptoPage({ onClose }) {
+export default function CryptoPage({ balance = 0, onClose, onBalanceUpdate }) {
   const [prices, setPrices] = useState(() => CRYPTO_BASE.map((c) => ({ ...c })))
   const [holdings, setHoldings] = useState(getHoldings)
   const [modalCoin, setModalCoin] = useState(null)   // coin object from prices
   const [modalTab, setModalTab] = useState('buy')    // 'buy' | 'sell'
   const [modalAmt, setModalAmt] = useState('')
+  const [isTrading, setIsTrading] = useState(false)
   const [toast, setToast] = useState(null)
 
   // Live price ticks every 4 seconds
@@ -110,7 +97,7 @@ export default function CryptoPage({ onClose }) {
 
   // Derived modal values
   const usdAmount = parseFloat(modalAmt) || 0
-  const bankBalance = getBalance()
+  const bankBalance = Number(balance) || 0
   const coinHoldingsQty = modalCoin ? (holdings[modalCoin.symbol] || 0) : 0
   const coinHoldingsUsd = modalCoin ? coinHoldingsQty * (modalCoin.price || 0) : 0
   const coinQty = modalCoin && usdAmount > 0 ? usdAmount / modalCoin.price : 0
@@ -124,57 +111,72 @@ export default function CryptoPage({ onClose }) {
     return false
   }, [modalCoin, usdAmount, modalTab, bankBalance, sellCoinQty, coinHoldingsQty])
 
-  function handleConfirm() {
-    if (!modalCoin || !canConfirm()) return
+  async function handleConfirm() {
+    if (!modalCoin || !canConfirm() || isTrading) return
     const coin = modalCoin
     const amt = usdAmount
-    const bal = getBalance()
-    let newBal
+    const bal = bankBalance
     const h = { ...holdings }
+    setIsTrading(true)
 
     if (modalTab === 'buy') {
-      newBal = bal - amt
+      const newBal = bal - amt
       const receivedCoins = amt / coin.price
-      h[coin.symbol] = (h[coin.symbol] || 0) + receivedCoins
-      setBalance(newBal)
-      saveHoldings(h)
-      setHoldings({ ...h })
-      saveTransaction({
-        id: Date.now(),
-        ref: 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
-        type: 'crypto',
-        beneficiary: `${coin.name} (Purchase)`,
-        amount: amt,
-        balanceAfter: newBal,
-        date: new Date().toISOString(),
-        direction: 'outgoing',
-        memo: `Bought ${receivedCoins.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
-      })
-      dispatchBalanceEvent()
-      showToast(`Bought ${receivedCoins.toFixed(6)} ${coin.symbol}`)
+      const ref = 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+      try {
+        const committed = await saveTransaction({
+          id: ref,
+          ref,
+          type: 'crypto',
+          beneficiary: `${coin.name} (Purchase)`,
+          amount: amt,
+          balanceAfter: newBal,
+          date: new Date().toISOString(),
+          direction: 'outgoing',
+          memo: `Bought ${receivedCoins.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
+        })
+        const nextBalance = committed.balanceAfter ?? newBal
+        h[coin.symbol] = (h[coin.symbol] || 0) + receivedCoins
+        saveHoldings(h)
+        setHoldings({ ...h })
+        onBalanceUpdate?.(nextBalance)
+        showToast(`Bought ${receivedCoins.toFixed(6)} ${coin.symbol}`)
+        closeModal()
+      } catch (err) {
+        showToast(err.message || 'Crypto purchase failed.')
+      } finally {
+        setIsTrading(false)
+      }
     } else {
       // sell: usdAmount is USD value to sell
       const sellQty = amt / coin.price
-      newBal = bal + amt
-      h[coin.symbol] = Math.max(0, (h[coin.symbol] || 0) - sellQty)
-      setBalance(newBal)
-      saveHoldings(h)
-      setHoldings({ ...h })
-      saveTransaction({
-        id: Date.now(),
-        ref: 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase(),
-        type: 'crypto',
-        beneficiary: `${coin.name} (Sale)`,
-        amount: amt,
-        balanceAfter: newBal,
-        date: new Date().toISOString(),
-        direction: 'incoming',
-        memo: `Sold ${sellQty.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
-      })
-      dispatchBalanceEvent()
-      showToast(`Sold ${sellQty.toFixed(6)} ${coin.symbol} · +$${amt.toFixed(2)}`)
+      const newBal = bal + amt
+      const ref = 'CRY-' + Math.random().toString(36).slice(2, 8).toUpperCase()
+      try {
+        const committed = await saveTransaction({
+          id: ref,
+          ref,
+          type: 'crypto',
+          beneficiary: `${coin.name} (Sale)`,
+          amount: amt,
+          balanceAfter: newBal,
+          date: new Date().toISOString(),
+          direction: 'incoming',
+          memo: `Sold ${sellQty.toFixed(6)} ${coin.symbol} @ $${coin.price.toFixed(2)}`,
+        })
+        const nextBalance = committed.balanceAfter ?? newBal
+        h[coin.symbol] = Math.max(0, (h[coin.symbol] || 0) - sellQty)
+        saveHoldings(h)
+        setHoldings({ ...h })
+        onBalanceUpdate?.(nextBalance)
+        showToast(`Sold ${sellQty.toFixed(6)} ${coin.symbol} · +$${amt.toFixed(2)}`)
+        closeModal()
+      } catch (err) {
+        showToast(err.message || 'Crypto sale failed.')
+      } finally {
+        setIsTrading(false)
+      }
     }
-    closeModal()
   }
 
   return (
@@ -312,10 +314,10 @@ export default function CryptoPage({ onClose }) {
             {/* Confirm button */}
             <button
               className="crypto-modal-confirm"
-              disabled={!canConfirm()}
+              disabled={!canConfirm() || isTrading}
               onClick={handleConfirm}
             >
-              {modalTab === 'buy' ? `Buy ${modalCoin.symbol}` : `Sell ${modalCoin.symbol}`}
+              {isTrading ? 'Processing...' : modalTab === 'buy' ? `Buy ${modalCoin.symbol}` : `Sell ${modalCoin.symbol}`}
             </button>
             {modalTab === 'buy' && usdAmount > bankBalance && usdAmount > 0 && (
               <p style={{ color: '#ef4444', fontSize: '0.76rem', textAlign: 'center', marginTop: 8, margin: '8px 0 0' }}>

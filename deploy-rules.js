@@ -1,55 +1,51 @@
 #!/usr/bin/env node
-/**
- * Deploy Firestore Security Rules
- * 
- * This script deploys the updated firestore.rules to Firebase.
- * Run with: node deploy-rules.js
- */
+/* global process */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-console.log('🔥 Deploying Firestore Security Rules...\n');
+const rootDir = dirname(fileURLToPath(import.meta.url))
+const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT || 'td-project-pro'
+const npxBin = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+const nodeOptions = new Set((process.env.NODE_OPTIONS || '').split(/\s+/).filter(Boolean))
+nodeOptions.add('--use-system-ca')
 
-// Check if firebase-tools is installed
-try {
-  execSync('firebase --version', { stdio: 'ignore' });
-} catch (err) {
-  console.error('❌ Firebase CLI not found. Installing...');
-  try {
-    execSync('npm install -g firebase-tools', { stdio: 'inherit' });
-  } catch (installErr) {
-    console.error('❌ Failed to install Firebase CLI. Please install manually:');
-    console.error('   npm install -g firebase-tools');
-    process.exit(1);
-  }
+const rulesPath = join(rootDir, 'firestore.rules')
+if (!existsSync(rulesPath)) {
+  console.error('firestore.rules file not found.')
+  process.exit(1)
 }
 
-// Check if firestore.rules exists
-const rulesPath = path.join(__dirname, 'firestore.rules');
-if (!fs.existsSync(rulesPath)) {
-  console.error('❌ firestore.rules file not found!');
-  process.exit(1);
-}
+console.log(`Deploying Firestore rules to ${projectId}...`)
 
-console.log('📄 Found firestore.rules');
-console.log('🚀 Deploying to Firebase...\n');
-
-// Deploy only Firestore rules
 try {
-  execSync('firebase deploy --only firestore:rules', { 
-    stdio: 'inherit',
-    cwd: __dirname 
-  });
-  console.log('\n✅ Firestore rules deployed successfully!');
-  console.log('\n📋 Summary of changes:');
-  console.log('   • Admins can now read all user profiles');
-  console.log('   • Admins can read/write all user transactions');
-  console.log('   • Regular users can only access their own data');
+  execFileSync(
+    npxBin,
+    [
+      '--yes',
+      'firebase-tools',
+      'deploy',
+      '--only',
+      'firestore:rules',
+      '--project',
+      projectId,
+      '--non-interactive',
+    ],
+    {
+      cwd: rootDir,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: Array.from(nodeOptions).join(' '),
+      },
+    }
+  )
+  console.log('Firestore rules deployed successfully.')
 } catch (err) {
-  console.error('\n❌ Deployment failed:', err.message);
-  console.error('\nMake sure you are logged in to Firebase:');
-  console.error('   firebase login');
-  process.exit(1);
+  console.error('Firestore rules deployment failed.')
+  if (err.message) console.error(err.message)
+  process.exit(err.status || 1)
 }

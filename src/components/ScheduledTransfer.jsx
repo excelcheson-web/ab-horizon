@@ -62,52 +62,69 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
 
   // Process any due transfers on mount
   useEffect(() => {
-    const items = getScheduled()
-    const today = new Date().toISOString().slice(0, 10)
-    let changed = false
-    let bal = balance
+    let cancelled = false
 
-    const updated = items.map((item) => {
-      if (item.status === 'pending' && item.date <= today) {
+    async function processDueTransfers() {
+      const items = getScheduled()
+      const today = new Date().toISOString().slice(0, 10)
+      let changed = false
+      let bal = balance
+      const updated = []
+
+      for (const item of items) {
+        if (item.status !== 'pending' || item.date > today) {
+          updated.push(item)
+          continue
+        }
+
         const amt = item.amount
-        if (amt <= bal) {
-          bal -= amt
-          changed = true
-          saveTransaction({
-            id: Date.now(),
-            ref: item.ref,
+
+        const executionRef = item.frequency === 'once'
+          ? item.ref
+          : `${item.ref}-${today.replace(/-/g, '')}`
+
+        try {
+          const committed = await saveTransaction({
+            id: executionRef,
+            ref: executionRef,
             type: 'scheduled',
             beneficiary: item.beneficiary,
             accountNumber: item.accountNumber,
             bankName: item.bankName,
             amount: amt,
-            balanceAfter: bal,
+            balanceAfter: bal - amt,
             date: new Date().toISOString(),
             direction: 'outgoing',
           })
 
-          // For recurring, compute next date
+          bal = committed.balanceAfter ?? (bal - amt)
+          changed = true
+
           if (item.frequency !== 'once') {
             const next = new Date(item.date)
             if (item.frequency === 'weekly') next.setDate(next.getDate() + 7)
             else if (item.frequency === 'biweekly') next.setDate(next.getDate() + 14)
             else if (item.frequency === 'monthly') next.setMonth(next.getMonth() + 1)
-            return { ...item, date: next.toISOString().slice(0, 10), lastExecuted: today }
+            updated.push({ ...item, date: next.toISOString().slice(0, 10), lastExecuted: today })
+          } else {
+            updated.push({ ...item, status: 'completed', lastExecuted: today })
           }
-          return { ...item, status: 'completed', lastExecuted: today }
+        } catch (err) {
+          console.warn('[ScheduledTransfer] due transfer failed:', err.message)
+          changed = true
+          updated.push({ ...item, status: 'failed', failReason: err.message || 'Transfer failed' })
         }
-        return { ...item, status: 'failed', failReason: 'Insufficient balance' }
       }
-      return item
-    })
 
-    if (changed) {
-      localStorage.setItem(SCHEDULED_KEY, JSON.stringify(updated))
-      localStorage.setItem('bank_balance', String(bal))
-      window.dispatchEvent(new StorageEvent('storage', { key: 'bank_balance', newValue: String(bal) }))
-      onBalanceUpdate(bal)
-      setScheduled(updated)
+      if (changed && !cancelled) {
+        localStorage.setItem(SCHEDULED_KEY, JSON.stringify(updated))
+        onBalanceUpdate(bal)
+        setScheduled(updated)
+      }
     }
+
+    processDueTransfers()
+    return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const update = (field, value) => {

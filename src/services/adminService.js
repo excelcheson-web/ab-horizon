@@ -7,19 +7,44 @@ import { db, adminDb, adminAuth, firestoreCircuitBreaker } from './firebaseClien
 import { rememberDeletedTransaction } from './transactionService'
 import {
   doc,
-  setDoc,
   getDoc,
   updateDoc,
-  deleteDoc,
   collection,
   getDocs,
   query,
   orderBy,
   where,
-  onSnapshot,
+  runTransaction,
+  serverTimestamp,
 } from 'firebase/firestore'
 
 export const DEFAULT_SUSPENSION_MESSAGE = 'Your account has been temporarily restricted due to suspicious activity detected during routine security monitoring. Please contact customer support or visit the nearest branch to verify your account and restore full access.'
+
+function centsFromAmount(value) {
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.round(number * 100) : 0
+}
+
+function dollarsFromCents(cents) {
+  return centsFromAmount(cents / 100) / 100
+}
+
+function readBalanceCents(data = {}) {
+  return Number.isFinite(data.balanceCents)
+    ? Math.round(data.balanceCents)
+    : centsFromAmount(data.balance ?? 0)
+}
+
+function readBalance(data = {}) {
+  return dollarsFromCents(readBalanceCents(data))
+}
+
+function transactionSign(direction, type) {
+  if (direction === 'incoming') return 1
+  if (direction === 'outgoing') return -1
+  if (['deposit', 'credit', 'incoming', 'loan_disbursement', 'refund', 'payroll'].includes(type)) return 1
+  return -1
+}
 
 // ── Helper: Broadcast changes to localStorage for app sync ────────────────────
 function broadcastToApp(uid, data) {
@@ -76,66 +101,6 @@ function broadcastToApp(uid, data) {
 }
 
 // ── Helper: Debounced Firestore Write Queue ─────────────────────────────────
-const writeQueue = new Map()
-const writeTimeouts = new Map()
-const lastWriteTime = new Map()
-const writeFailureCount = new Map()
-const MIN_WRITE_INTERVAL = 30000 // 30 seconds between writes to same key
-const MAX_FAILURES = 3
-const CIRCUIT_BREAKER_TIMEOUT = 300000 // 5 minutes
-
-function debouncedWrite(key, operation, delay = 30000) {
-  // Check circuit breaker - if too many failures, skip writing
-  const failures = writeFailureCount.get(key) || 0
-  if (failures >= MAX_FAILURES) {
-    const lastFailure = lastWriteTime.get(key) || 0
-    if (Date.now() - lastFailure < CIRCUIT_BREAKER_TIMEOUT) {
-      console.warn(`[adminService] Circuit breaker active for ${key}, skipping write`)
-      return
-    } else {
-      // Reset failure count after timeout
-      writeFailureCount.set(key, 0)
-    }
-  }
-  
-  // Check if we recently wrote to this key
-  const now = Date.now()
-  const lastWrite = lastWriteTime.get(key) || 0
-  const timeSinceLastWrite = now - lastWrite
-  
-  // If we wrote recently, extend the delay
-  const actualDelay = timeSinceLastWrite < MIN_WRITE_INTERVAL ? MIN_WRITE_INTERVAL : delay
-  
-  // Clear existing timeout for this key
-  if (writeTimeouts.has(key)) {
-    clearTimeout(writeTimeouts.get(key))
-  }
-  
-  // Store the latest operation
-  writeQueue.set(key, operation)
-  
-  // Set new timeout
-  const timeoutId = setTimeout(async () => {
-    const op = writeQueue.get(key)
-    if (op) {
-      try {
-        await op()
-        lastWriteTime.set(key, Date.now())
-        writeFailureCount.set(key, 0) // Reset failures on success
-        writeQueue.delete(key)
-      } catch (err) {
-        console.warn(`[adminService] Debounced write failed for ${key}:`, err.message)
-        // Increment failure count
-        writeFailureCount.set(key, (writeFailureCount.get(key) || 0) + 1)
-        // Don't retry immediately - let the next debounce handle it
-      }
-    }
-    writeTimeouts.delete(key)
-  }, actualDelay)
-  
-  writeTimeouts.set(key, timeoutId)
-}
-
 // ── Helper: Retry Firestore operation ────────────────────────────────────────
 async function withRetry(operation, maxRetries = 3, delay = 1000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -192,7 +157,7 @@ export async function fetchAllUsers(options = {}) {
         email: data.email || '',
         name: data.full_name || data.name || 'Unknown',
         full_name: data.full_name || data.name || 'Unknown',
-        balance: data.balance ?? 0,
+        balance: readBalance(data),
         savingsVault: data.savingsVault || 0,
         accountType: data.accountType || 'Savings Account',
         accountNumber: data.accountNumber || '',
@@ -248,7 +213,7 @@ export async function getUserByEmail(email) {
       email: data.email || '',
       name: data.full_name || data.name || 'Unknown',
       full_name: data.full_name || data.name || 'Unknown',
-      balance: data.balance ?? 0,
+      balance: readBalance(data),
       savingsVault: data.savingsVault || 0,
       accountType: data.accountType || 'Savings Account',
       accountNumber: data.accountNumber || '',
@@ -279,7 +244,7 @@ export async function getUserById(uid) {
       email: data.email || '',
       name: data.full_name || data.name || 'Unknown',
       full_name: data.full_name || data.name || 'Unknown',
-      balance: data.balance ?? 0,
+      balance: readBalance(data),
       savingsVault: data.savingsVault || 0,
       accountType: data.accountType || 'Savings Account',
       accountNumber: data.accountNumber || '',
@@ -304,38 +269,47 @@ export async function getUserById(uid) {
  */
 export async function updateUserBalance(uid, amount, operation = 'add') {
   if (!uid) throw new Error('User ID is required')
-  const amt = parseFloat(amount)
-  if (isNaN(amt) || amt < 0) throw new Error('Invalid amount')
+  const amountCents = centsFromAmount(amount)
+  if (!Number.isFinite(amountCents) || amountCents < 0) throw new Error('Invalid amount')
 
-  const userRef = doc(adminDb, 'profiles', uid)
-  const userSnap = await getDoc(userRef)
+  const newBalance = await withRetry(async () => runTransaction(adminDb, async (tx) => {
+    const userRef = doc(adminDb, 'profiles', uid)
+    const userSnap = await tx.get(userRef)
 
-  if (!userSnap.exists()) {
-    throw new Error('User not found')
-  }
+    if (!userSnap.exists()) {
+      throw new Error('User not found')
+    }
 
-  const currentBalance = userSnap.data().balance ?? 0
-  let newBalance
+    const currentCents = readBalanceCents(userSnap.data())
+    let nextCents
 
-  switch (operation) {
-    case 'add':
-    case 'credit':
-      newBalance = currentBalance + amt
-      break
-    case 'subtract':
-    case 'debit':
-      newBalance = Math.max(0, currentBalance - amt)
-      break
-    case 'set':
-      newBalance = amt
-      break
-    default:
-      throw new Error('Invalid operation. Use: add, subtract, or set')
-  }
+    switch (operation) {
+      case 'add':
+      case 'credit':
+        nextCents = currentCents + amountCents
+        break
+      case 'subtract':
+      case 'debit':
+        nextCents = currentCents - amountCents
+        break
+      case 'set':
+        nextCents = amountCents
+        break
+      default:
+        throw new Error('Invalid operation. Use: add, subtract, or set')
+    }
 
-  await withRetry(async () => {
-    await updateDoc(userRef, { balance: newBalance })
-  })
+    if (nextCents < 0) throw new Error('Insufficient balance')
+
+    const balance = dollarsFromCents(nextCents)
+    tx.update(userRef, {
+      balance,
+      balanceCents: nextCents,
+      updatedAt: serverTimestamp(),
+    })
+    return balance
+  }))
+
   broadcastToApp(uid, { balance: newBalance })
   return newBalance
 }
@@ -360,15 +334,23 @@ export function generateTransactionRef() {
  */
 export async function createTransaction(uid, txnData) {
   if (!uid) throw new Error('User ID is required')
-  
+
+  const amountCents = centsFromAmount(txnData.amount)
+  if (amountCents <= 0) throw new Error('Invalid amount')
+
+  const generatedRef = String(txnData.ref || txnData.id || generateTransactionRef())
+  const txnId = String(txnData.id || generatedRef)
+  const idempotencyKey = String(txnData.idempotencyKey || generatedRef)
+
   const txn = {
-    id: txnData.id || Date.now() + Math.floor(Math.random() * 999999),
-    ref: txnData.ref || generateTransactionRef(),
+    id: txnId,
+    ref: generatedRef,
     type: txnData.type || 'local', // 'local' | 'international' | 'credit' | 'debit'
     direction: txnData.direction || 'incoming', // 'incoming' | 'outgoing'
     beneficiary: txnData.beneficiary || txnData.senderName || 'Unknown',
     senderName: txnData.senderName || txnData.beneficiary || 'Unknown',
-    amount: parseFloat(txnData.amount) || 0,
+    amount: dollarsFromCents(amountCents),
+    amountCents,
     date: txnData.date || new Date().toISOString(),
     bankName: txnData.bankName || 'Optima Credit Union',
     description: txnData.description || txnData.memo || '',
@@ -379,42 +361,62 @@ export async function createTransaction(uid, txnData) {
     country: txnData.country || '',
     status: txnData.status || 'completed',
     createdAt: new Date().toISOString(),
+    idempotencyKey,
   }
 
-  // Save transaction immediately (no debounce needed for this)
-  await withRetry(async () => {
-    await setDoc(
-      doc(adminDb, 'profiles', uid, 'transactions', String(txn.id)),
-      txn
-    )
-  })
+  const committed = await withRetry(async () => runTransaction(adminDb, async (tx) => {
+    const userRef = doc(adminDb, 'profiles', uid)
+    const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txn.id))
+    const requestRef = doc(adminDb, 'profiles', uid, 'ledgerRequests', txn.idempotencyKey)
+    const [userSnap, requestSnap] = await Promise.all([
+      tx.get(userRef),
+      tx.get(requestRef),
+    ])
 
-  // Update user's balance based on transaction direction (debounced)
-  const userRef = doc(adminDb, 'profiles', uid)
-  const userSnap = await getDoc(userRef)
-  let newBalance = null
-  
-  if (userSnap.exists()) {
-    const currentBalance = userSnap.data().balance ?? 0
-    newBalance = currentBalance
-    
-    if (txn.direction === 'incoming' || txn.type === 'credit') {
-      newBalance = currentBalance + txn.amount
-    } else if (txn.direction === 'outgoing' || txn.type === 'debit') {
-      newBalance = Math.max(0, currentBalance - txn.amount)
-    }
-    
-    try {
-      await withRetry(async () => {
-        await updateDoc(userRef, { balance: newBalance })
-      })
-    } catch (err) {
-      console.error('[adminService] createTransaction balance update failed:', err.message)
-    }
-    broadcastToApp(uid, { balance: newBalance })
-  }
+    if (!userSnap.exists()) throw new Error('User not found')
 
-  return txn
+    if (requestSnap.exists()) {
+      const existing = requestSnap.data()
+      return { ...txn, id: existing.transactionId || txn.id, balanceAfter: dollarsFromCents(existing.balanceAfterCents) }
+    }
+
+    const currentCents = readBalanceCents(userSnap.data())
+    const nextCents = currentCents + (transactionSign(txn.direction, txn.type) * amountCents)
+    if (nextCents < 0) throw new Error('Insufficient balance')
+
+    const balanceAfter = dollarsFromCents(nextCents)
+    const balanceBefore = dollarsFromCents(currentCents)
+    const committedTxn = {
+      ...txn,
+      balanceBefore,
+      balanceBeforeCents: currentCents,
+      balanceAfter,
+      balanceAfterCents: nextCents,
+      committedAt: serverTimestamp(),
+    }
+
+    tx.set(txnRef, committedTxn)
+    tx.set(requestRef, {
+      id: txn.idempotencyKey,
+      transactionId: String(txn.id),
+      amountCents,
+      direction: txn.direction,
+      type: txn.type,
+      balanceAfterCents: nextCents,
+      createdAt: serverTimestamp(),
+    })
+    tx.update(userRef, {
+      balance: balanceAfter,
+      balanceCents: nextCents,
+      lastTransactionId: String(txn.id),
+      updatedAt: serverTimestamp(),
+    })
+
+    return committedTxn
+  }))
+
+  broadcastToApp(uid, { balance: committed.balanceAfter })
+  return committed
 }
 
 /**
@@ -424,68 +426,65 @@ export async function updateTransaction(uid, txnId, txnData) {
   if (!uid || !txnId) throw new Error('User ID and Transaction ID are required')
 
   try {
-    const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
-    const txnSnap = await getDoc(txnRef)
-    
-    if (!txnSnap.exists()) {
-      throw new Error('Transaction not found')
-    }
+    const updatedTxn = await withRetry(async () => runTransaction(adminDb, async (tx) => {
+      const userRef = doc(adminDb, 'profiles', uid)
+      const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
+      const [userSnap, txnSnap] = await Promise.all([
+        tx.get(userRef),
+        tx.get(txnRef),
+      ])
 
-    const oldTxn = txnSnap.data()
-    const oldAmount = oldTxn.amount
-    const oldDirection = oldTxn.direction || oldTxn.type
-    
-    // Build updated transaction
-    const updatedTxn = {
-      ...oldTxn,
-      type: txnData.type || oldTxn.type,
-      direction: txnData.direction || oldTxn.direction,
-      beneficiary: txnData.beneficiary || oldTxn.beneficiary,
-      amount: parseFloat(txnData.amount) || oldTxn.amount,
-      bankName: txnData.bankName || oldTxn.bankName,
-      description: txnData.description || oldTxn.description,
-      accountNumber: txnData.accountNumber || oldTxn.accountNumber,
-      iban: txnData.iban || oldTxn.iban,
-      swift: txnData.swift || oldTxn.swift,
-      country: txnData.country || oldTxn.country,
-      date: txnData.date || oldTxn.date,
-      updatedAt: new Date().toISOString(),
-    }
+      if (!userSnap.exists()) throw new Error('User not found')
+      if (!txnSnap.exists()) throw new Error('Transaction not found')
 
-    // Calculate balance adjustment
-    const userRef = doc(adminDb, 'profiles', uid)
-    const userSnap = await getDoc(userRef)
-    let newBalance = null
-    
-    if (userSnap.exists()) {
-      const currentBalance = userSnap.data().balance ?? 0
-      newBalance = currentBalance
-      
-      // Reverse old transaction effect
-      if (oldDirection === 'incoming' || oldTxn.type === 'credit') {
-        newBalance = Math.max(0, currentBalance - oldAmount)
-      } else if (oldDirection === 'outgoing' || oldTxn.type === 'debit') {
-        newBalance = currentBalance + oldAmount
+      const oldTxn = txnSnap.data()
+      const oldAmountCents = Number.isFinite(oldTxn.amountCents)
+        ? Math.round(oldTxn.amountCents)
+        : centsFromAmount(oldTxn.amount ?? 0)
+      const newAmountCents = centsFromAmount(txnData.amount ?? oldTxn.amount ?? 0)
+      if (newAmountCents <= 0) throw new Error('Invalid amount')
+
+      const nextTxn = {
+        ...oldTxn,
+        type: txnData.type || oldTxn.type,
+        direction: txnData.direction || oldTxn.direction,
+        beneficiary: txnData.beneficiary || oldTxn.beneficiary,
+        amount: dollarsFromCents(newAmountCents),
+        amountCents: newAmountCents,
+        bankName: txnData.bankName || oldTxn.bankName,
+        description: txnData.description || oldTxn.description,
+        accountNumber: txnData.accountNumber || oldTxn.accountNumber,
+        iban: txnData.iban || oldTxn.iban,
+        swift: txnData.swift || oldTxn.swift,
+        country: txnData.country || oldTxn.country,
+        date: txnData.date || oldTxn.date,
+        updatedAt: new Date().toISOString(),
       }
-      
-      // Apply new transaction effect
-      if (updatedTxn.direction === 'incoming' || updatedTxn.type === 'credit') {
-        newBalance = newBalance + updatedTxn.amount
-      } else if (updatedTxn.direction === 'outgoing' || updatedTxn.type === 'debit') {
-        newBalance = Math.max(0, newBalance - updatedTxn.amount)
-      }
-      
-      await withRetry(async () => {
-        await updateDoc(userRef, { balance: newBalance })
+
+      const currentCents = readBalanceCents(userSnap.data())
+      const oldEffect = transactionSign(oldTxn.direction, oldTxn.type) * oldAmountCents
+      const newEffect = transactionSign(nextTxn.direction, nextTxn.type) * newAmountCents
+      const nextBalanceCents = currentCents - oldEffect + newEffect
+      if (nextBalanceCents < 0) throw new Error('Insufficient balance after transaction update')
+
+      const balanceAfter = dollarsFromCents(nextBalanceCents)
+      tx.update(userRef, {
+        balance: balanceAfter,
+        balanceCents: nextBalanceCents,
+        lastTransactionId: String(txnId),
+        updatedAt: serverTimestamp(),
       })
-      broadcastToApp(uid, { balance: newBalance })
-    }
+      tx.update(txnRef, {
+        ...nextTxn,
+        balanceAfter,
+        balanceAfterCents: nextBalanceCents,
+      })
 
-    await withRetry(async () => {
-      await updateDoc(txnRef, updatedTxn)
-    })
-    
-    return { ...updatedTxn, id: txnId }
+      return { ...nextTxn, id: txnId, balanceAfter, balanceAfterCents: nextBalanceCents }
+    }))
+
+    broadcastToApp(uid, { balance: updatedTxn.balanceAfter })
+    return updatedTxn
   } catch (err) {
     console.error('[adminService] updateTransaction error:', err.message)
     throw new Error('Failed to update transaction: ' + err.message)
@@ -499,56 +498,42 @@ export async function deleteTransaction(uid, txnId) {
   if (!uid || !txnId) throw new Error('User ID and Transaction ID are required')
 
   try {
-    // Get the transaction first to know the amount/direction
-    const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
-    const txnSnap = await getDoc(txnRef)
-    
-    if (!txnSnap.exists()) {
-      throw new Error('Transaction not found')
-    }
+    const newBalance = await withRetry(async () => runTransaction(adminDb, async (tx) => {
+      const userRef = doc(adminDb, 'profiles', uid)
+      const txnRef = doc(adminDb, 'profiles', uid, 'transactions', String(txnId))
+      const tombstoneRef = doc(adminDb, 'profiles', uid, 'deletedTransactions', String(txnId))
+      const [userSnap, txnSnap] = await Promise.all([
+        tx.get(userRef),
+        tx.get(txnRef),
+      ])
 
-    const txn = txnSnap.data()
-    
-    // Adjust balance (reverse the transaction)
-    const userRef = doc(adminDb, 'profiles', uid)
-    const userSnap = await getDoc(userRef)
-    let newBalance = null
-    
-    if (userSnap.exists()) {
-      const currentBalance = userSnap.data().balance ?? 0
-      newBalance = currentBalance
-      
-      if (txn.direction === 'incoming' || txn.type === 'credit') {
-        // Reverse a credit by subtracting
-        newBalance = Math.max(0, currentBalance - txn.amount)
-      } else if (txn.direction === 'outgoing' || txn.type === 'debit') {
-        // Reverse a debit by adding back
-        newBalance = currentBalance + txn.amount
-      }
-      
-      await withRetry(async () => {
-        await updateDoc(userRef, { balance: newBalance })
+      if (!userSnap.exists()) throw new Error('User not found')
+      if (!txnSnap.exists()) throw new Error('Transaction not found')
+
+      const txn = txnSnap.data()
+      const amountCents = Number.isFinite(txn.amountCents)
+        ? Math.round(txn.amountCents)
+        : centsFromAmount(txn.amount ?? 0)
+      const currentCents = readBalanceCents(userSnap.data())
+      const nextCents = currentCents - (transactionSign(txn.direction, txn.type) * amountCents)
+      if (nextCents < 0) throw new Error('Cannot delete this transaction because it would make the balance negative')
+
+      const balance = dollarsFromCents(nextCents)
+      tx.update(userRef, {
+        balance,
+        balanceCents: nextCents,
+        updatedAt: serverTimestamp(),
       })
-      broadcastToApp(uid, { balance: newBalance })
-    }
-
-    // Delete the transaction (no debounce needed for this)
-    await withRetry(async () => {
-      await deleteDoc(txnRef)
-    })
-
-    try {
-      await withRetry(async () => {
-        await setDoc(doc(adminDb, 'profiles', uid, 'deletedTransactions', String(txnId)), {
-          id: String(txnId),
-          deletedAt: new Date().toISOString(),
-        })
+      tx.delete(txnRef)
+      tx.set(tombstoneRef, {
+        id: String(txnId),
+        deletedAt: new Date().toISOString(),
       })
-    } catch (err) {
-      console.warn('[adminService] deleteTransaction tombstone failed:', err.message)
-    }
+      return balance
+    }))
 
     rememberDeletedTransaction(txnId, uid)
+    broadcastToApp(uid, { balance: newBalance })
     
     return { success: true, message: 'Transaction deleted and balance adjusted' }
   } catch (err) {
@@ -700,21 +685,26 @@ export async function updateUserProfilePicture(uid, profilePicUrl) {
 // ── App-Side Balance Sync (for deposits, transfers, etc.) ───────────────────
 
 /**
- * Sync balance update from Firestore to localStorage only.
- * Firestore writes are DISABLED to prevent resource-exhausted errors.
- * All data persistence is now handled through localStorage.
+ * Sync an exact balance adjustment for legacy callers.
+ * New money movement should use createTransaction so the transaction record and
+ * profile balance are committed together.
  */
-export function syncBalanceToFirestore(uid, newBalance) {
-  if (!uid) return
-  broadcastToApp(uid, { balance: newBalance })
-  // Debounced Firestore write — batches rapid updates into one write per 30s
-  debouncedWrite(`balance-${uid}`, async () => {
-    try {
-      await updateDoc(doc(db, 'profiles', uid), { balance: newBalance })
-    } catch (err) {
-      console.warn('[adminService] Balance Firestore sync failed:', err.message)
-    }
-  }, 30000)
+export async function syncBalanceToFirestore(uid, newBalance) {
+  if (!uid) return null
+
+  const balanceCents = centsFromAmount(newBalance)
+  const balance = dollarsFromCents(balanceCents)
+
+  await withRetry(async () => {
+    await updateDoc(doc(db, 'profiles', uid), {
+      balance,
+      balanceCents,
+      updatedAt: serverTimestamp(),
+    })
+  })
+
+  broadcastToApp(uid, { balance })
+  return balance
 }
 
 /**

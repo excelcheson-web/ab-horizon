@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import TransactionSuccess from './TransactionSuccess'
 import OtpModal from './OtpModal'
 import AiSupport from './AiSupport'
@@ -16,7 +16,7 @@ import TransactionHistory from './TransactionHistory'
 import FinancialServices from './FinancialServices'
 import CryptoPage from './CryptoPage'
 import TDLogo from './TDLogo'
-import { updateUserProfile, logoutUser } from '../services/firebaseAuth'
+import { logoutUser } from '../services/firebaseAuth'
 import {
   isBiometricSupported,
   isPlatformAuthenticatorAvailable,
@@ -24,24 +24,14 @@ import {
   registerBiometric,
   clearBiometric,
 } from '../services/biometricService'
-import { db } from '../services/firebaseClient'
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
-import { DEFAULT_SUSPENSION_MESSAGE, syncBalanceToFirestore } from '../services/adminService'
-import { loadTransactions } from '../services/transactionService'
+import { DEFAULT_SUSPENSION_MESSAGE } from '../services/adminService'
+import { loadTransactions, subscribeToTransactions } from '../services/transactionService'
+import { loadAccountProfile, readBalance, subscribeToAccountProfile } from '../services/accountLedger'
 import { useLanguage } from '../i18n/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
-import { useFirestoreDoc, useDebouncedDocUpdate } from '../hooks/useDebouncedFirestore'
 
 // Safe upsert — creates the Firestore doc if it doesn't exist yet
 // (updateDoc throws NOT_FOUND when the profile was never written to Firestore)
-async function safeUpdateBalance(db, uid, fields) {
-  try {
-    await setDoc(doc(db, 'profiles', uid), fields, { merge: true })
-  } catch (err) {
-    console.warn('[Dashboard] Firestore balance upsert failed:', err.message)
-  }
-}
-
 const STORAGE_KEY = 'securebank_admin'
 const NOTIF_KEY = 'securebank_notifications'
 
@@ -181,28 +171,6 @@ const CRYPTO = [
   { symbol: 'LINK', name: 'Chainlink', price: 14.56,   change: +0.9, color: '#2a5ada' },
 ]
 
-/* ── Sample transactions ─────────────────────────────────── */
-function getTransactions(admin) {
-  if (!admin.balance && !admin.lastTxnAmount) return []
-  const receiverName = admin.receiverName || 'N/A'
-  const lastTxn = admin.lastTxnAmount || '0.00'
-  const balance = admin.balance || '0.00'
-  return [
-    { date: 'Today', items: [
-      { desc: `TRANSFER TO ${receiverName.toUpperCase()}`, amount: `-$${lastTxn}`, bal: `$${balance}`, debit: true },
-      { desc: 'PAYROLL DEPOSIT – EMPLOYER', amount: '+$4,200.00', bal: '$1,500,000.00', debit: false },
-    ]},
-    { date: 'Yesterday', items: [
-      { desc: 'CAPITAL ONE CRCARDPMT', amount: '-$29.00', bal: '$1,495,800.00', debit: true },
-      { desc: 'EB FROM CHECKING # xxxxxx0801', amount: '+$300.00', bal: '$1,495,829.00', debit: false },
-    ]},
-    { date: 'Mar 11, 2026', items: [
-      { desc: 'ALLSTATE INS CO INS PREM', amount: '-$655.16', bal: '$1,495,529.00', debit: true },
-      { desc: 'AMAZON MARKETPLACE', amount: '-$42.99', bal: '$1,494,873.84', debit: true },
-    ]},
-  ]
-}
-
 /* ── Crypto chart icon ────────────────────────────────────── */
 const CryptoIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -226,7 +194,6 @@ export default function Dashboard({ profile, onLogout }) {
   const [admin, setAdmin] = useState(getAdminData)
   const [showSuspend, setShowSuspend] = useState(false)
   const [suspendReason, setSuspendReason] = useState('')
-  const [activeTab, setActiveTab] = useState('transactions')
   const [showAiSupport, setShowAiSupport] = useState(false)
   const [activeNav, setActiveNav] = useState('home')
   const [showCrypto, setShowCrypto] = useState(false)
@@ -268,7 +235,6 @@ export default function Dashboard({ profile, onLogout }) {
     try { return JSON.parse(localStorage.getItem('transfer_history') || '[]') } catch { return [] }
   })
   const logoMenuRef = useRef(null)
-  const wealthRef = useRef(null)
   const loadingTimerRef = useRef(null)
   const idleWarnRef = useRef(null)
   const idleLogoutRef = useRef(null)
@@ -309,96 +275,98 @@ export default function Dashboard({ profile, onLogout }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Update profilePic when profile prop changes
-  useEffect(() => {
-    if (profile?.profilePic) {
-      setProfilePic(profile.profilePic)
-    }
-  }, [profile?.profilePic])
+  const applyAccountProfile = useCallback((account) => {
+    const nextBalance = readBalance(account)
+    const nextVault = Number(account.savingsVault ?? account.savings_vault ?? 0)
 
-  // ── Load recent transactions from Firestore on mount ──────
-  useEffect(() => {
-    const uid = profile?.uid || profile?.id
-    if (!uid) return
-    loadTransactions(uid).then((txns) => {
-      if (txns.length > 0) setRecentTxns(txns)
-    }).catch(() => {})
-  }, [profile?.uid, profile?.id])
-
-  // ── Fetch real balance from Firestore ─────────────────────
-  // PRIORITY: Load from localStorage FIRST, only READ from Firestore (never write)
-  const fetchBalance = useCallback(async () => {
-    const uid = profile?.uid || profile?.id
-    if (!uid) { setBalanceLoading(false); return }
-    
-    // STEP 1: Always load from localStorage FIRST (immediate)
-    const localBal = parseFloat(localStorage.getItem('bank_balance') || '0')
-    const localVault = parseFloat(localStorage.getItem('savings_vault') || '0')
-    
-    // Show local data immediately
-    setBankBalance(localBal)
-    setSavingsVault(localVault)
+    setBankBalance(nextBalance)
+    setSavingsVault(Number.isFinite(nextVault) ? nextVault : 0)
+    setProfilePic(account.profilePic || account.profile_pic || null)
     setBalanceLoading(false)
     setBalanceError(false)
 
-    // STEP 2: Read from Firestore in background (non-blocking, NO WRITES)
-    setTimeout(async () => {
-      try {
-        const snap = await getDoc(doc(db, 'profiles', uid))
-        if (snap.exists()) {
-          const data = snap.data()
-          const firestoreBal = parseFloat(data.balance ?? 0)
-          const firestoreVault = parseFloat(data.savingsVault ?? data.savings_vault ?? 0)
+    setAdmin((prev) => ({
+      ...prev,
+      suspended: account.suspended ?? prev.suspended,
+      suspendReason: account.suspendReason ?? prev.suspendReason,
+      featureFlags: account.featureFlags || prev.featureFlags,
+    }))
 
-          // Decide which balance to trust:
-          // • Local empty/zero → always use Firestore (first login / cleared data)
-          // • Local was updated within the last 90s → keep local (transfer just happened,
-          //   Firestore sync is still in its 30s debounce window — don't overwrite)
-          // • Local is stale (>90s old) AND Firestore is higher → admin credited account
-          if (!isNaN(firestoreBal)) {
-            const localEmpty = !localBal || localBal === 0
-            const localTs = parseInt(localStorage.getItem('balance_local_update_ts') || '0')
-            const localIsRecent = Date.now() - localTs < 90000 // 90 seconds
-            if (localEmpty) {
-              setBankBalance(firestoreBal)
-              localStorage.setItem('bank_balance', String(firestoreBal))
-            } else if (!localIsRecent && firestoreBal > localBal) {
-              // Stale local + Firestore higher = admin credited the account
-              setBankBalance(firestoreBal)
-              localStorage.setItem('bank_balance', String(firestoreBal))
-            }
-            // else: local is recent — keep it, Firestore is catching up
-          }
-          if (firestoreVault !== localVault && !isNaN(firestoreVault)) {
-            setSavingsVault(firestoreVault)
-            localStorage.setItem('savings_vault', String(firestoreVault))
-          }
-          // NOTE: We NEVER write to Firestore during fetch to avoid resource exhaustion
-        }
-      } catch (err) {
-        console.warn('[Dashboard] Firestore read failed (using localStorage):', err.message)
-        // Keep using localStorage data - no error shown to user
-      }
-    }, 100) // Small delay to let UI render first
-  }, [profile?.uid, profile?.id])
+    if (account.accountType || account.account_type) {
+      localStorage.setItem('user_account_type', account.accountType || account.account_type)
+    }
+  }, [])
 
-  // ── Sync balance to localStorage immediately, Firestore in background ─────────
-  // Called by child components (deposit, transfer, etc.) via onBalanceUpdate.
-  // Writes to React state + localStorage immediately, Firestore debounced.
-  const handleBalanceUpdate = useCallback((newBalance) => {
-    setBankBalance(newBalance)
-    localStorage.setItem('bank_balance', String(newBalance))
-    localStorage.setItem('balance_local_update_ts', String(Date.now()))
-    // Firestore write is now handled by adminService.js with debouncing
+  useEffect(() => {
+    setProfilePic(profile?.profilePic || profile?.profile_pic || null)
+  }, [profile?.profilePic, profile?.profile_pic])
+
+  useEffect(() => {
     const uid = profile?.uid || profile?.id
-    if (uid) {
-      // Sync to Firestore in background (debounced, fire-and-forget)
-      syncBalanceToFirestore(uid, newBalance)
+    if (!uid) return
+
+    let active = true
+    loadTransactions(uid)
+      .then((txns) => { if (active) setRecentTxns(txns) })
+      .catch((err) => console.warn('[Dashboard] transaction load failed:', err.message))
+
+    const unsubscribe = subscribeToTransactions(uid, (txns) => {
+      if (active) setRecentTxns(txns)
+    })
+
+    return () => {
+      active = false
+      unsubscribe()
     }
   }, [profile?.uid, profile?.id])
 
-  // Call on mount
+  const fetchBalance = useCallback(async () => {
+    const uid = profile?.uid || profile?.id
+    if (!uid) { setBalanceLoading(false); return }
+
+    const localOwner = localStorage.getItem('bank_balance_owner')
+    const localBal = parseFloat(localStorage.getItem('bank_balance') || '')
+    const localVault = parseFloat(localStorage.getItem('savings_vault') || '')
+    const hasLocalBalance = (!localOwner || localOwner === uid) && Number.isFinite(localBal)
+
+    if (hasLocalBalance) {
+      setBankBalance(localBal)
+      setSavingsVault(Number.isFinite(localVault) ? localVault : 0)
+      setBalanceLoading(false)
+      setBalanceError(false)
+    }
+
+    try {
+      const account = await loadAccountProfile(uid)
+      applyAccountProfile(account)
+    } catch (err) {
+      console.warn('[Dashboard] account profile load failed:', err.message)
+      setBalanceLoading(false)
+      setBalanceError(true)
+    }
+  }, [applyAccountProfile, profile?.uid, profile?.id])
+
+  const handleBalanceUpdate = useCallback((newBalance) => {
+    const numericBalance = Number(newBalance)
+    if (!Number.isFinite(numericBalance)) return
+
+    setBankBalance(numericBalance)
+    localStorage.setItem('bank_balance', String(numericBalance))
+    localStorage.setItem('balance_local_update_ts', String(Date.now()))
+  }, [])
+
   useEffect(() => { fetchBalance() }, [fetchBalance])
+
+  useEffect(() => {
+    const uid = profile?.uid || profile?.id
+    if (!uid) return
+
+    return subscribeToAccountProfile(
+      uid,
+      applyAccountProfile,
+      (err) => console.warn('[Dashboard] account profile listener failed:', err.message)
+    )
+  }, [applyAccountProfile, profile?.uid, profile?.id])
 
   // Prompt to set up biometrics after first login (once per device)
   useEffect(() => {
@@ -568,9 +536,6 @@ export default function Dashboard({ profile, onLogout }) {
     const onStorage = (e) => {
       if (e.key === STORAGE_KEY) setAdmin(getAdminData())
       if (e.key === NOTIF_KEY) checkNotifications()
-      if (e.key === 'bank_balance') {
-        setBankBalance(parseFloat(e.newValue || '0'))
-      }
       if (e.key === 'system_notification') checkSysAlert()
       if (e.key === 'transfer_history') {
         try {
@@ -598,8 +563,6 @@ export default function Dashboard({ profile, onLogout }) {
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [checkNotifications, checkSysAlert, profile?.uid, profile?.id])
-
-  // Real-time sync and cloud push logic removed
 
   // Email-sent toast listener
   useEffect(() => {
@@ -631,7 +594,7 @@ export default function Dashboard({ profile, onLogout }) {
     }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [checkNotifications, fetchBalance])
+  }, [checkNotifications, checkSysAlert, fetchBalance])
 
   // Listen for suspension check events from transfer components
   useEffect(() => {
@@ -641,58 +604,14 @@ export default function Dashboard({ profile, onLogout }) {
     }
     window.addEventListener('show-suspend-modal', handleSuspendModal)
     return () => window.removeEventListener('show-suspend-modal', handleSuspendModal)
-  }, [])
+  }, [admin.suspendReason])
 
-  // ── Firestore sync disabled to prevent resource-exhausted errors ────────────
-  // Real-time listener removed - using localStorage as primary data source
-  // Firestore is now only used for admin operations and initial data seeding
-  // All balance updates go through adminService.js with 30s debounce
-  
-  // Sync FROM Firestore only on initial mount (one-time read, not listener)
-  useEffect(() => {
-    const uid = profile?.uid || profile?.id
-    if (!uid) return
-    
-    // Only sync from Firestore if we don't have local data
-    const localBal = localStorage.getItem('bank_balance')
-    if (localBal && localBal !== '0') return // Skip if we have local balance
-    
-    // One-time fetch from Firestore (not a listener)
-    const fetchOnce = async () => {
-      try {
-        const { getDoc, doc } = await import('firebase/firestore')
-        const { db } = await import('../services/firebaseClient')
-        const snap = await getDoc(doc(db, 'profiles', uid))
-        if (snap.exists()) {
-          const data = snap.data()
-          const firestoreBal = parseFloat(data.balance ?? 0)
-          if (!isNaN(firestoreBal) && firestoreBal > 0) {
-            setBankBalance(firestoreBal)
-            localStorage.setItem('bank_balance', String(firestoreBal))
-          }
-        }
-      } catch (err) {
-        console.warn('[Dashboard] One-time Firestore fetch failed:', err.message)
-      }
-    }
-    
-    fetchOnce()
-  }, [profile?.uid, profile?.id])
-
-  const balance = admin.balance || '0.00'
   const lastTxn = admin.lastTxnAmount || '0.00'
   const receiverName = admin.receiverName || 'N/A'
   const accountNumber = profile?.accountNumber || null
-  const maskedAcct = accountNumber ? `*${accountNumber.slice(-4)}` : ''
   const txnDate = admin.txnDate
     ? new Date(admin.txnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'Mar 14, 2026'
-
-  const handleTransferTap = useCallback(() => {
-    setShowTransferOtp(true)
-  }, [])
-
-  const transactions = getTransactions(admin)
 
   return (
     <div className={`db ${theme === 'light' ? 'db--light' : ''}`}>
@@ -849,7 +768,9 @@ export default function Dashboard({ profile, onLogout }) {
       )}
       {showCrypto && (
         <CryptoPage
+          balance={bankBalance}
           onClose={() => setShowCrypto(false)}
+          onBalanceUpdate={handleBalanceUpdate}
         />
       )}
       {showScheduled && (
@@ -878,6 +799,7 @@ export default function Dashboard({ profile, onLogout }) {
       )}
       {showFinServices && (
         <FinancialServices
+          balance={bankBalance}
           onClose={() => setShowFinServices(false)}
           onBalanceUpdate={handleBalanceUpdate}
         />
@@ -944,7 +866,7 @@ export default function Dashboard({ profile, onLogout }) {
                 </button>
               )}
               <div className="db-logo-menu-divider" />
-              <button className="db-logo-menu-item db-logo-menu-item--logout" onClick={async () => { setShowLogoMenu(false); try { await logoutUser() } catch {} localStorage.removeItem('securebank_user'); localStorage.removeItem('user_account_type'); localStorage.removeItem('privacy_state'); onLogout() }}>
+              <button className="db-logo-menu-item db-logo-menu-item--logout" onClick={async () => { setShowLogoMenu(false); try { await logoutUser() } catch { /* ignore logout failure */ } localStorage.removeItem('securebank_user'); localStorage.removeItem('user_account_type'); localStorage.removeItem('privacy_state'); onLogout() }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 {t('logout')}
               </button>
@@ -1163,7 +1085,6 @@ export default function Dashboard({ profile, onLogout }) {
         const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
         const now = new Date()
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-        const todayIdx = now.getDay()
         // Build array for last 7 days
         const days = Array.from({ length: 7 }, (_, i) => {
           const d = new Date(now)
@@ -1223,14 +1144,11 @@ export default function Dashboard({ profile, onLogout }) {
           const recent = recentTxns.slice(0, 30)
           // Credit types: money coming IN (green +)
           const creditTypes = ['deposit', 'credit', 'payroll', 'refund', 'incoming']
-          // Debit types: money going OUT (red -)
-          const debitTypes = ['transfer', 'debit', 'bill_payment', 'international', 'local', 'investment']
           return recent.length > 0 ? (
             <div className="db-txn-list">
               {recent.map((t) => {
                 // Determine if transaction is credit or debit based on type/direction
                 const isCredit = creditTypes.includes(t.type) || t.direction === 'incoming'
-                const isDebit = debitTypes.includes(t.type) || t.direction === 'outgoing' || (!isCredit && !creditTypes.includes(t.type))
                 // For display: if it's a credit (money coming in), show + in green
                 // If it's a debit (money going out), show - in red
                 const displayAmount = Math.abs(Number(t.amount))
@@ -1341,7 +1259,7 @@ export default function Dashboard({ profile, onLogout }) {
         const allNotifs = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]')
         const sysNotif = localStorage.getItem('system_notification')
         let sysItem = null
-        try { if (sysNotif) sysItem = JSON.parse(sysNotif) } catch {}
+        try { if (sysNotif) sysItem = JSON.parse(sysNotif) } catch { /* ignore invalid JSON */ }
         const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
         return (
           <div className="nc-overlay" onClick={() => setShowNotifCenter(false)}>
@@ -1435,7 +1353,7 @@ export default function Dashboard({ profile, onLogout }) {
                     const updated = notifs.map((n) => ({ ...n, read: true }))
                     localStorage.setItem(NOTIF_KEY, JSON.stringify(updated))
                     setHasUnread(false)
-                  } catch {}
+                  } catch { /* ignore invalid JSON */ }
                 })
               } else if (n.id === 'support') {
                 openWithLoading(() => setShowAiSupport(true))

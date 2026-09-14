@@ -158,17 +158,6 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Always check Firestore — this also updates localStorage so unsuspend
-    // is reflected immediately without requiring a logout/login
-    const uid = getUserUid()
-    const suspensionStatus = await checkUserSuspensionStatus(uid)
-    if (suspensionStatus.suspended) {
-      window.dispatchEvent(new CustomEvent('show-suspend-modal', {
-        detail: { reason: suspensionStatus.reason }
-      }))
-      return
-    }
-    
     const { beneficiary, iban, swift, bankName, country, amount } = form
 
     if (!beneficiary.trim() || !iban.trim() || !swift.trim() || !bankName.trim() || !country.trim() || !amount.trim()) {
@@ -203,6 +192,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       description: form.description.trim(),
       balanceAfter: newBalance,
       date: new Date().toISOString(),
+      direction: 'outgoing',
     })
 
     // Step 1: SWIFT network connection
@@ -235,7 +225,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
     }, 3000)
   }
 
-  const handleOtpVerify = () => {
+  const handleOtpVerify = async () => {
     const entered = otpCode.join('')
     if (entered.length < 6) {
       setOtpError('Please enter all 6 digits.')
@@ -251,27 +241,39 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       return
     }
 
-    // OTP verified → process transfer
     setOtpStep(false)
     setIsLoading(true)
+    setLoadingMsg('Checking account status...')
+    const uid = getUserUid()
+    const suspensionStatus = await checkUserSuspensionStatus(uid)
+    if (suspensionStatus.suspended) {
+      setIsLoading(false)
+      setPendingTxn(null)
+      window.dispatchEvent(new CustomEvent('show-suspend-modal', {
+        detail: { reason: suspensionStatus.reason }
+      }))
+      return
+    }
+
+    // OTP verified → process transfer
     setLoadingMsg('Processing international transfer…')
     setTimeout(() => setLoadingMsg('Routing through SWIFT gateway…'), 800)
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const txn = pendingTxn
-      saveTransaction(txn)
+      try {
+        const committed = await saveTransaction(txn)
+        const nextBalance = committed.balanceAfter ?? txn.balanceAfter
+        onBalanceUpdate(nextBalance)
+        sendTransferEmail(committed)
 
-      localStorage.setItem('bank_balance', String(txn.balanceAfter))
-      localStorage.setItem('balance_local_update_ts', String(Date.now()))
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'bank_balance',
-        newValue: String(txn.balanceAfter),
-      }))
-      onBalanceUpdate(txn.balanceAfter)
-      sendTransferEmail(txn)
-
-      setIsLoading(false)
-      setReceipt(txn)
+        setIsLoading(false)
+        setReceipt(committed)
+      } catch (err) {
+        setIsLoading(false)
+        setPendingTxn(null)
+        setError(err.message || 'Transfer failed. Please try again.')
+      }
     }, 1800)
   }
 

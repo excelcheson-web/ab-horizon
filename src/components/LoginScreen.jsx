@@ -1,11 +1,6 @@
 import { useState, useEffect } from 'react'
 import TDLogo from './TDLogo'
 import { loginUser } from '../services/firebaseAuth'
-import {
-  isBiometricSupported,
-  isBiometricRegistered,
-  authenticateWithBiometric,
-} from '../services/biometricService'
 import { PrivacyPolicyModal, TermsOfServiceModal, CookiePolicyModal, ComplianceModal } from './LegalModals'
 import { ContactUsModal, SupportCenterModal } from './ContactModals'
 
@@ -195,23 +190,16 @@ export default function LoginScreen({ onLogin, onRegister }) {
     try {
       setTimeout(() => setLoadingMsg('Authenticating with server…'), 2000)
       setTimeout(() => setLoadingMsg('Establishing secure session…'), 3800)
-      const previousUser = getStoredUser()
-      const previousUid = getProfileUid(previousUser)
-      const previousBalanceOwner = localStorage.getItem('bank_balance_owner') || previousUid
       try { sessionStorage.setItem(APP_SESSION_KEY, 'true') } catch { /* silent */ }
       const profile = await loginUser(email.trim(), password)
       const profileUid = getProfileUid(profile)
-      const sameCachedUser = !!profileUid && previousUid === profileUid && (!previousBalanceOwner || previousBalanceOwner === profileUid)
-      if (profileUid && previousBalanceOwner && previousBalanceOwner !== profileUid) {
-        clearCachedUserData()
-      }
+      clearCachedUserData()
       localStorage.setItem('securebank_user',   JSON.stringify(profile))
       localStorage.setItem('user_account_type', profile.accountType)
       localStorage.setItem('user_email',        profile.email)
       localStorage.setItem('user_name',         profile.name)
-      const eb = sameCachedUser ? parseFloat(localStorage.getItem('bank_balance') || '0') : 0
       const pb = parseFloat(profile.balance || 0)
-      localStorage.setItem('bank_balance', String(Math.max(eb, pb)))
+      localStorage.setItem('bank_balance', String(pb))
       localStorage.setItem('bank_balance_owner', profileUid)
       setTimeout(() => { setLoading(false); setLoadingMsg(''); onLogin(profile) }, 5000)
     } catch (err) {
@@ -226,52 +214,9 @@ export default function LoginScreen({ onLogin, onRegister }) {
 
   const handleFaceId = async () => {
     if (faceIdState === 'scanning') return
-    setError('')
-
-    // Check browser support
-    if (!isBiometricSupported()) {
-      setError('Biometric authentication is not supported on this device or browser.')
-      return
-    }
-
-    // Check if registered
-    if (!isBiometricRegistered()) {
-      setError('No biometric registered. Sign in with your password first, then enable Face ID from your account settings.')
-      return
-    }
-
-    setFaceIdState('scanning')
-    try {
-      // Triggers the real device Face ID / fingerprint / Windows Hello prompt
-      const verified = await authenticateWithBiometric()
-
-      if (verified) {
-        const stored = getStoredUser()
-        if (stored) {
-          setFaceIdState('success')
-          setTimeout(() => onLogin(stored), 600)
-        } else {
-          // Biometric passed but session expired
-          setFaceIdState('denied')
-          setError('Session expired. Please sign in with your password to continue.')
-          setTimeout(() => setFaceIdState('idle'), 3000)
-        }
-      }
-    } catch (err) {
-      setFaceIdState('denied')
-      if (err.message === 'NO_CREDENTIAL') {
-        setError('No biometric registered. Please sign in with your password first.')
-      } else if (err.name === 'NotAllowedError') {
-        setError('Biometric authentication was cancelled. Try again or use your password.')
-      } else if (err.name === 'SecurityError') {
-        setError('Biometrics require a secure connection (HTTPS).')
-      } else if (err.name === 'InvalidStateError') {
-        setError('Biometric credential not found on this device. Please sign in with your password.')
-      } else {
-        setError('Biometric authentication failed. Please use your password.')
-      }
-      setTimeout(() => setFaceIdState('idle'), 4000)
-    }
+    setFaceIdState('denied')
+    setError('For account reliability, please sign in with your password. Biometrics are used only to unlock an already verified session.')
+    setTimeout(() => setFaceIdState('idle'), 4000)
   }
 
   const handleForgotSubmit = (e) => {

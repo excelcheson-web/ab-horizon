@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   fetchAllUsers,
   getUserByEmail,
@@ -9,10 +9,8 @@ import {
   getUserTransactions,
   toggleUserSuspension,
   updateFeatureFlags,
-  getUserFeatureFlags,
   updateUserAccountType,
   updateUserProfilePicture,
-  generateTransactionRef,
   DEFAULT_SUSPENSION_MESSAGE,
 } from '../services/adminService'
 
@@ -21,11 +19,6 @@ const NOTIF_KEY = 'securebank_notifications'
 
 function formatBalance(num) {
   return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function parseBalance(str) {
-  if (!str) return 0
-  return parseFloat(String(str).replace(/,/g, '')) || 0
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -43,7 +36,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
   const [activeSection, setActiveSection] = useState('account-mgmt')
   const [loadingBtn, setLoadingBtn] = useState(null)
   const [toast, setToast] = useState(null)
-  const [lastSync, setLastSync] = useState(null)
+  const [lastSync] = useState(null)
 
   // ── Account Management State ───────────────────────────────
   const [creditAmount, setCreditAmount] = useState('')
@@ -114,8 +107,6 @@ export default function AdminApp({ onLogout, onRevoke }) {
 
   // ── Profile Picture State ────────────────────────────────
   const [profilePicUrl, setProfilePicUrl] = useState('')
-  const [showUserDropdown, setShowUserDropdown] = useState(false)
-  const [profilePicFile, setProfilePicFile] = useState(null)
   const fileInputRef = useRef(null)
 
   // ── Toast Helper ───────────────────────────────────────────
@@ -205,10 +196,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
     }
 
     await withLoading('credit', async () => {
-      const newBalance = await updateUserBalance(selectedUser.uid, amount, 'add')
-      
-      // Create a credit transaction record
-      await createTransaction(selectedUser.uid, {
+      const txn = await createTransaction(selectedUser.uid, {
         type: 'credit',
         direction: 'incoming',
         beneficiary: 'Account Credit',
@@ -216,6 +204,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
         description: 'Admin credit',
         bankName: 'Optima Credit Union',
       })
+      const newBalance = txn.balanceAfter ?? selectedUser.balance
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
       setCreditAmount('')
@@ -240,10 +229,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
     }
 
     await withLoading('debit', async () => {
-      const newBalance = await updateUserBalance(selectedUser.uid, amount, 'subtract')
-      
-      // Create a debit transaction record
-      await createTransaction(selectedUser.uid, {
+      const txn = await createTransaction(selectedUser.uid, {
         type: 'debit',
         direction: 'outgoing',
         beneficiary: 'Account Debit',
@@ -251,6 +237,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
         description: 'Admin debit',
         bankName: 'Optima Credit Union',
       })
+      const newBalance = txn.balanceAfter ?? selectedUser.balance
 
       setSelectedUser({ ...selectedUser, balance: newBalance })
       setDebitAmount('')

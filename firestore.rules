@@ -1,66 +1,163 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ── Helper: is the request from an authenticated user? ─────────────────
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // ── Helper: is the caller accessing their own document? ────────────────
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // ── Helper: is the caller the authorised admin? ─────────────────────────
-    // Checks the Firebase Auth token email — no Firestore profile field needed.
-    // To change the admin email, update VITE_ADMIN_EMAIL in .env AND this rule.
+    function hasAdminProfile() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == 'karladelbert83@gmail.com' ||
-        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
+        hasAdminProfile()
       );
     }
 
-    // ── Profiles collection ─────────────────────────────────────────────────
+    function ownerProfileCreate(userId) {
+      return isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.balance == 0
+        && request.resource.data.balanceCents == 0
+        && request.resource.data.savingsVault == 0
+        && request.resource.data.savingsVaultCents == 0
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'full_name',
+          'name',
+          'email',
+          'accountNumber',
+          'account_number',
+          'accountType',
+          'account_type',
+          'pin',
+          'profilePic',
+          'profile_pic',
+          'balance',
+          'balanceCents',
+          'savingsVault',
+          'savingsVaultCents',
+          'createdAt',
+          'created_at',
+          'updatedAt'
+        ]);
+    }
+
+    function ownerProfileEdit() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'full_name',
+        'name',
+        'email',
+        'accountNumber',
+        'account_number',
+        'accountType',
+        'account_type',
+        'pin',
+        'profilePic',
+        'profile_pic',
+        'updatedAt'
+      ]);
+    }
+
+    function currentBalanceCents() {
+      return resource.data.balanceCents is number
+        ? resource.data.balanceCents
+        : (resource.data.balance is number ? resource.data.balance * 100 : 0);
+    }
+
+    function validTransactionShape(transactionId) {
+      return request.resource.data.id == transactionId
+        && request.resource.data.amountCents is number
+        && request.resource.data.amountCents > 0
+        && request.resource.data.balanceBeforeCents is number
+        && request.resource.data.balanceAfterCents is number
+        && (
+          request.resource.data.direction == 'incoming' ||
+          request.resource.data.direction == 'outgoing'
+        )
+        && request.resource.data.balanceAfterCents >= 0;
+    }
+
+    function ledgerProfileUpdate(userId) {
+      let txnId = request.resource.data.lastTransactionId;
+      let txnPath = /databases/$(database)/documents/profiles/$(userId)/transactions/$(txnId);
+      let txn = getAfter(txnPath).data;
+
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'balance',
+          'balanceCents',
+          'lastTransactionId',
+          'updatedAt'
+        ])
+        && resource.data.suspended != true
+        && request.resource.data.lastTransactionId is string
+        && existsAfter(txnPath)
+        && request.resource.data.balanceCents is number
+        && request.resource.data.balanceCents >= 0
+        && txn.id == txnId
+        && txn.amountCents is number
+        && txn.amountCents > 0
+        && txn.balanceBeforeCents == currentBalanceCents()
+        && txn.balanceAfterCents == request.resource.data.balanceCents
+        && (
+          (txn.direction == 'incoming' && txn.balanceAfterCents == currentBalanceCents() + txn.amountCents) ||
+          (txn.direction == 'outgoing' && txn.balanceAfterCents == currentBalanceCents() - txn.amountCents)
+        );
+    }
+
+    function validLedgerRequest(requestId) {
+      return request.resource.data.id == requestId
+        && request.resource.data.transactionId is string
+        && request.resource.data.amountCents is number
+        && request.resource.data.amountCents > 0
+        && request.resource.data.balanceAfterCents is number
+        && request.resource.data.balanceAfterCents >= 0
+        && (
+          request.resource.data.direction == 'incoming' ||
+          request.resource.data.direction == 'outgoing'
+        );
+    }
+
     match /profiles/{userId} {
-      // Users can read only their own profile; admin can read any profile.
       allow read: if isOwner(userId) || isAdmin();
-
-      // Users can create only their own profile; admin can create any
-      allow create: if isOwner(userId) || isAdmin();
-
-      // Users can update their own profile; admin can update any profile
-      allow update: if isOwner(userId) || isAdmin();
-
-      // Hard deny all client-side deletes
+      allow create: if isAdmin() || ownerProfileCreate(userId);
+      allow update: if isAdmin() || (isOwner(userId) && (ownerProfileEdit() || ledgerProfileUpdate(userId)));
       allow delete: if false;
 
-      // ── Nested transactions subcollection ─────────────────────────────────
       match /transactions/{transactionId} {
-        allow read:   if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) || isAdmin();
-        allow update: if isOwner(userId) || isAdmin();
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isAdmin() || (isOwner(userId) && validTransactionShape(transactionId));
+        allow update: if isAdmin();
         allow delete: if isAdmin();
       }
 
-      // Admin deletion markers prevent stale localStorage history from
-      // re-uploading transactions that were intentionally removed.
+      match /ledgerRequests/{requestId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isAdmin() || (isOwner(userId) && validLedgerRequest(requestId));
+        allow update, delete: if isAdmin();
+      }
+
       match /deletedTransactions/{transactionId} {
         allow read: if isOwner(userId) || isAdmin();
         allow create, update, delete: if isAdmin();
       }
     }
 
-    // ── Users collection (legacy / additional data) ─────────────────────────
     match /users/{userId} {
-      allow read:   if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if false;
     }
 
-    // ── Top-level transactions collection (legacy support) ──────────────────
     match /transactions/{transactionId} {
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
@@ -74,12 +171,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Admin collection ────────────────────────────────────────────────────
     match /admin/{document=**} {
       allow read, write: if isAdmin();
     }
 
-    // ── Default deny all ────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

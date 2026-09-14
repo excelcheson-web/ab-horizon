@@ -3,9 +3,9 @@
 ## Tasks
 
 ### 1. Account Suspension Warning Timing
-- [ ] Move suspension check to AFTER OTP verification in LocalTransfer.jsx
-- [ ] Move suspension check to AFTER OTP verification in InternationalTransfer.jsx
-- [ ] Suspension warning should appear when user clicks "Confirm Transfer" after OTP, not before
+- [x] Move suspension check to AFTER OTP verification in LocalTransfer.jsx
+- [x] Move suspension check to AFTER OTP verification in InternationalTransfer.jsx
+- [x] Suspension warning should appear when user clicks "Confirm Transfer" after OTP, not before
 
 ### 2. Admin Panel Features ✅ COMPLETED
 - [x] Transaction history editing with working UI (modal)
@@ -58,7 +58,7 @@
 - "Refresh Users" button to reload user list
 
 ## Testing Checklist
-- [ ] Test suspension warning appears after OTP verification
+- [x] Test suspension warning appears after OTP verification
 - [x] Test admin panel user switching
 - [x] Test transaction editing in admin panel
 - [x] Test auto-generate transactions

@@ -100,36 +100,37 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
     setTimeout(() => setLoadingMsg('Executing trade…'), 2000)
     setTimeout(() => setLoadingMsg('Confirming with exchange…'), 3800)
 
-    setTimeout(() => {
-    saveTransaction(txn)
+    setTimeout(async () => {
+      try {
+        const committed = await saveTransaction(txn)
+        const nextBalance = committed.balanceAfter ?? newBalance
 
-    // Save to portfolio
-    const port = getPortfolio()
-    const existing = port.find((p) => p.ticker === selected.ticker)
-    if (existing) {
-      existing.shares += qty
-      existing.avgCost = ((existing.avgCost * (existing.shares - qty)) + total) / existing.shares
-    } else {
-      port.push({ ticker: selected.ticker, name: selected.name, shares: qty, avgCost: selected.price, sector: selected.sector })
-    }
-    localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(port))
-    setPortfolio(port)
+        const port = getPortfolio()
+        const existing = port.find((p) => p.ticker === selected.ticker)
+        if (existing) {
+          existing.shares += qty
+          existing.avgCost = ((existing.avgCost * (existing.shares - qty)) + total) / existing.shares
+        } else {
+          port.push({ ticker: selected.ticker, name: selected.name, shares: qty, avgCost: selected.price, sector: selected.sector })
+        }
+        localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(port))
+        setPortfolio(port)
 
-    // Update balance
-    localStorage.setItem('bank_balance', String(newBalance))
-    window.dispatchEvent(new StorageEvent('storage', { key: 'bank_balance', newValue: String(newBalance) }))
-    onBalanceUpdate(newBalance)
+        onBalanceUpdate(nextBalance)
 
-    // Notification
-    const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
-    notifs.push({ type: 'debit', amount: fmt(total), newBalance: fmt(newBalance), read: false })
-    localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
-    window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
+        const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
+        notifs.push({ type: 'debit', amount: fmt(total), newBalance: fmt(nextBalance), read: false })
+        localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
+        window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
 
-    sendTransferEmail(txn)
-    setIsLoading(false)
-    setReceipt({ ...txn, ticker: selected.ticker, shares: qty, pricePerShare: selected.price })
-    setView('receipt')
+        sendTransferEmail(committed)
+        setIsLoading(false)
+        setReceipt({ ...committed, ticker: selected.ticker, shares: qty, pricePerShare: selected.price })
+        setView('receipt')
+      } catch (err) {
+        setIsLoading(false)
+        setError(err.message || 'Investment failed. Please try again.')
+      }
     }, 5000)
   }
 

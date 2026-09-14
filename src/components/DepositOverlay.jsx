@@ -51,31 +51,32 @@ export default function DepositOverlay({ balance, onClose, onBalanceUpdate }) {
       setLoadingMsg('Crediting your account…')
     }, 3800)
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const newBalance = balance + amt
       const ref = genRef()
       const txn = {
-        id: Date.now(),
+        id: ref,
         ref,
         type: 'deposit',
+        beneficiary: `${METHODS.find((m) => m.id === method)?.label || 'Deposit'}`,
         method: method,
         amount: amt,
         balanceAfter: newBalance,
         date: new Date().toISOString(),
+        direction: 'incoming',
       }
 
-      saveTransaction(txn)
+      try {
+        const committed = await saveTransaction(txn)
+        const nextBalance = committed.balanceAfter ?? newBalance
+        onBalanceUpdate(nextBalance)
 
-      localStorage.setItem('bank_balance', String(newBalance))
-      localStorage.setItem('balance_local_update_ts', String(Date.now()))
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'bank_balance',
-        newValue: String(newBalance),
-      }))
-      onBalanceUpdate(newBalance)
-
-      setIsLoading(false)
-      setReceipt({ ref, amount: amt, newBalance })
+        setIsLoading(false)
+        setReceipt({ ref: committed.ref || ref, amount: committed.amount ?? amt, newBalance: nextBalance })
+      } catch (err) {
+        setIsLoading(false)
+        setError(err.message || 'Deposit failed. Please try again.')
+      }
     }, 5000)
   }
 

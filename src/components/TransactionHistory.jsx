@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
-import { loadTransactions } from '../services/transactionService'
+import { loadTransactions, subscribeToTransactions } from '../services/transactionService'
 
 function fmt(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -48,18 +48,28 @@ export default function TransactionHistory({ onClose }) {
     try { return JSON.parse(localStorage.getItem('transfer_history') || '[]') } catch { return [] }
   })
 
-  // Load from Firestore on mount and merge with localStorage
   useEffect(() => {
+    let cancelled = false
     const uid = (() => {
       try { return JSON.parse(localStorage.getItem('securebank_user') || '{}').uid || null } catch { return null }
     })()
+
     loadTransactions(uid).then((txns) => {
-      if (txns.length > 0) setAllTxns(txns)
+      if (!cancelled) setAllTxns(txns)
     }).catch(() => { /* keep localStorage data */ })
+
+    const unsubscribe = uid ? subscribeToTransactions(uid, (txns) => {
+      if (!cancelled) setAllTxns(txns)
+    }) : () => {}
+
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [])
 
   const filtered = useMemo(() => {
-    const now = Date.now()
+    const now = new Date().getTime()
     const cutoff = period > 0 ? now - period * 86400000 : 0
     return allTxns.filter((t) => {
       const ts = new Date(t.date).getTime()
@@ -97,7 +107,7 @@ export default function TransactionHistory({ onClose }) {
 
   // Statement txns for selected period
   const stmtTxns = useMemo(() => {
-    const now = Date.now()
+    const now = new Date().getTime()
     const cutoff = stmtPeriod > 0 ? now - stmtPeriod * 86400000 : 0
     return allTxns.filter((t) => new Date(t.date).getTime() >= cutoff)
   }, [allTxns, stmtPeriod])
