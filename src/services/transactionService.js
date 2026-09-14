@@ -3,7 +3,6 @@ import { db } from './firebaseClient'
 import {
   BALANCE_KEY,
   BALANCE_OWNER_KEY,
-  cacheAccountSnapshot,
   commitAccountMutation,
   centsFromAmount,
   dollarsFromCents,
@@ -143,6 +142,14 @@ function canFallbackToLocalCommit(err) {
     message.includes('missing or insufficient permissions')
 }
 
+function toServerCommitError(err) {
+  if (!canFallbackToLocalCommit(err)) return err
+  const wrapped = new Error('Transaction was not completed because the bank server did not confirm the balance update. Please refresh and try again.')
+  wrapped.code = err?.code || 'server-commit-failed'
+  wrapped.cause = err
+  return wrapped
+}
+
 function buildLocalCommit(txn, uid, id, err) {
   const amountCents = centsFromAmount(txn.amount)
   const amount = dollarsFromCents(amountCents)
@@ -168,7 +175,7 @@ function buildLocalCommit(txn, uid, id, err) {
     balanceAfter: dollarsFromCents(balanceAfterCents),
     balanceAfterCents,
     date: txn.date || new Date().toISOString(),
-    status: txn.status || 'completed',
+    status: txn.status || 'pending_sync',
     syncStatus: 'local_only',
     syncError: err?.message || 'Firestore sync failed.',
   }
@@ -263,6 +270,7 @@ export function removeTransactionFromLocalHistory(txnId, uid = null) {
 
 export async function saveTransaction(txn, options = {}) {
   const uid = options.uid || getCurrentUserUid()
+  const allowLocalFallback = options.allowLocalFallback === true
   const id = getTxnId(txn)
   if (!uid) throw new Error('You must be signed in before making a transaction.')
   if (!id) throw new Error('Transaction ID is required.')
@@ -285,22 +293,25 @@ export async function saveTransaction(txn, options = {}) {
       idempotencyKey: txn.idempotencyKey || txn.ref || id,
     })
   } catch (err) {
-    if (!canFallbackToLocalCommit(err)) throw err
+    if (!allowLocalFallback || !canFallbackToLocalCommit(err)) {
+      throw toServerCommitError(err)
+    }
 
     const committed = buildLocalCommit(txn, uid, id, err)
-    console.warn('[transactionService] Firestore commit failed; saved simulated transaction locally:', err.message)
+    console.warn('[transactionService] Firestore commit failed; saved transaction locally without changing the server balance:', err.message)
     upsertLocalTransaction(committed, uid)
-    cacheAccountSnapshot(uid, {
-      balance: committed.balanceAfter,
-      balanceCents: committed.balanceAfterCents,
-    })
     return committed
+  }
+
+  if (result?.serverCommitted !== true) {
+    throw new Error('Transaction was not completed because the bank server did not confirm the balance update. Please try again.')
   }
 
   const committed = result.transaction || {
     ...txn,
     id: result.transactionId || id,
     balanceAfter: result.balanceAfter,
+    balanceAfterCents: result.balanceAfterCents,
   }
   upsertLocalTransaction(committed, uid)
   return committed

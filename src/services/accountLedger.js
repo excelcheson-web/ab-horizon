@@ -178,12 +178,19 @@ export async function commitAccountMutation({
     if (requestSnap.exists()) {
       const existing = requestSnap.data()
       const existingTxnId = existing.transactionId || txnId
+      const existingBalanceAfterCents = Math.round(Number(existing.balanceAfterCents))
+      const profileBalanceCents = readBalanceCents(profileSnap.data())
+      if (!Number.isFinite(existingBalanceAfterCents) || profileBalanceCents !== existingBalanceAfterCents) {
+        throw new Error('This transfer reference already exists, but the server balance does not match it. Please contact support before retrying.')
+      }
       const existingTxnSnap = await firestoreTxn.get(doc(db, 'profiles', uid, 'transactions', String(existingTxnId)))
       return {
         transaction: existingTxnSnap.exists() ? { id: existingTxnSnap.id, ...existingTxnSnap.data() } : null,
         transactionId: existingTxnId,
-        balanceAfter: dollarsFromCents(existing.balanceAfterCents),
+        balanceAfter: dollarsFromCents(existingBalanceAfterCents),
+        balanceAfterCents: existingBalanceAfterCents,
         alreadyCommitted: true,
+        serverCommitted: true,
       }
     }
 
@@ -238,11 +245,22 @@ export async function commitAccountMutation({
       updatedAt: serverTimestamp(),
     })
 
-    return { transaction: committedTxn, transactionId: txnId, balanceAfter }
+    return {
+      transaction: committedTxn,
+      transactionId: txnId,
+      balanceAfter,
+      balanceAfterCents: nextCents,
+      serverCommitted: true,
+    }
   })
 
   if (Number.isFinite(result.balanceAfter)) {
-    cacheAccountSnapshot(uid, { balance: result.balanceAfter, balanceCents: centsFromAmount(result.balanceAfter) })
+    cacheAccountSnapshot(uid, {
+      balance: result.balanceAfter,
+      balanceCents: Number.isFinite(result.balanceAfterCents)
+        ? result.balanceAfterCents
+        : centsFromAmount(result.balanceAfter),
+    })
   }
 
   return result

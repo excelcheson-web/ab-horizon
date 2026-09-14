@@ -356,10 +356,12 @@ export default function Dashboard({ profile, onLogout }) {
     const numericBalance = Number(newBalance)
     if (!Number.isFinite(numericBalance)) return
 
+    const uid = profile?.uid || profile?.id
     setBankBalance(numericBalance)
     localStorage.setItem('bank_balance', String(numericBalance))
+    if (uid) localStorage.setItem('bank_balance_owner', uid)
     localStorage.setItem('balance_local_update_ts', String(Date.now()))
-  }, [])
+  }, [profile?.uid, profile?.id])
 
   useEffect(() => { fetchBalance() }, [fetchBalance])
 
