@@ -4,6 +4,8 @@
  * Falls back gracefully — never blocks the transfer flow.
  */
 
+import { readScopedArray, writeScopedJson } from './userStorage'
+
 const EMAIL_LOG_KEY = 'email_notifications_log'
 
 function getUser() {
@@ -58,10 +60,10 @@ export function sendTransferEmail(txn) {
   }
 
   // Persist to log
-  const log = JSON.parse(localStorage.getItem(EMAIL_LOG_KEY) || '[]')
+  const log = readScopedArray(EMAIL_LOG_KEY)
   log.unshift(record)
   if (log.length > 50) log.length = 50
-  localStorage.setItem(EMAIL_LOG_KEY, JSON.stringify(log))
+  writeScopedJson(EMAIL_LOG_KEY, log)
 
   // Dispatch a custom event so Dashboard can show a toast
   window.dispatchEvent(new CustomEvent('email-sent', { detail: { to: email, subject } }))

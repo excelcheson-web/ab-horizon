@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { saveTransaction } from '../services/transactionService'
+import { readScopedObject, writeScopedJson } from '../services/userStorage'
 
 const HOLDINGS_KEY = 'crypto_holdings'
 
@@ -14,7 +15,7 @@ const CRYPTO_BASE = [
 
 function getHoldings() {
   try {
-    const h = JSON.parse(localStorage.getItem(HOLDINGS_KEY) || '{}')
+    const h = readScopedObject(HOLDINGS_KEY)
     const result = {}
     CRYPTO_BASE.forEach((c) => { result[c.symbol] = parseFloat(h[c.symbol]) || 0 })
     return result
@@ -25,7 +26,7 @@ function getHoldings() {
   }
 }
 function saveHoldings(h) {
-  localStorage.setItem(HOLDINGS_KEY, JSON.stringify(h))
+  writeScopedJson(HOLDINGS_KEY, h)
 }
 
 const BackIcon = () => (

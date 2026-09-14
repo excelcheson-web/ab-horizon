@@ -8,7 +8,7 @@ import {
   serverTimestamp,
   collection,
 } from 'firebase/firestore'
-import { db } from './firebaseClient'
+import { auth, db } from './firebaseClient'
 
 export const BALANCE_KEY = 'bank_balance'
 export const BALANCE_OWNER_KEY = 'bank_balance_owner'
@@ -62,9 +62,24 @@ export function cacheAccountSnapshot(uid, profile = {}) {
 }
 
 export function getCurrentUserUid() {
+  const authUid = auth.currentUser?.uid
+  if (authUid) return authUid
+
   try {
     const user = JSON.parse(localStorage.getItem('securebank_user') || '{}')
     return user.uid || user.id || ''
+  } catch {
+    return ''
+  }
+}
+
+export function getCurrentUserEmail() {
+  const authEmail = auth.currentUser?.email
+  if (authEmail) return authEmail
+
+  try {
+    const user = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+    return user.email || localStorage.getItem('user_email') || ''
   } catch {
     return ''
   }
@@ -189,6 +204,7 @@ export async function commitAccountMutation({
     const committedTxn = {
       ...txnData,
       id: txnId,
+      userId: uid,
       ref,
       type: normalizedType,
       direction: normalizedDirection,
@@ -207,6 +223,7 @@ export async function commitAccountMutation({
     firestoreTxn.set(txnRef, committedTxn)
     firestoreTxn.set(requestRef, {
       id: requestId,
+      userId: uid,
       transactionId: txnId,
       amountCents,
       direction: normalizedDirection,

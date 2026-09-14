@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { saveTransaction } from '../services/transactionService'
+import { writeScopedJson, readScopedArray } from '../services/userStorage'
 
 function genRef() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -106,10 +107,9 @@ export default function BillPayment({ balance, onClose, onBalanceUpdate }) {
 
         onBalanceUpdate(nextBalance)
 
-        const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
+        const notifs = readScopedArray('securebank_notifications')
         notifs.push({ type: 'debit', amount: formatCurrency(amt), newBalance: formatCurrency(nextBalance), read: false })
-        localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
-        window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
+        writeScopedJson('securebank_notifications', notifs)
 
         sendTransferEmail(committed)
         setIsLoading(false)

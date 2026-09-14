@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
-import { loadTransactions, subscribeToTransactions } from '../services/transactionService'
+import { loadTransactions, readCachedTransactions, subscribeToTransactions } from '../services/transactionService'
+import { getCurrentUserUid } from '../services/accountLedger'
+import { readScopedArray, writeScopedJson } from '../services/userStorage'
 
 function fmt(n) {
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -45,14 +47,12 @@ export default function TransactionHistory({ onClose }) {
   const [expandedId, setExpandedId] = useState(null)
 
   const [allTxns, setAllTxns] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('transfer_history') || '[]') } catch { return [] }
+    try { return readCachedTransactions() } catch { return [] }
   })
 
   useEffect(() => {
     let cancelled = false
-    const uid = (() => {
-      try { return JSON.parse(localStorage.getItem('securebank_user') || '{}').uid || null } catch { return null }
-    })()
+    const uid = getCurrentUserUid()
 
     loadTransactions(uid).then((txns) => {
       if (!cancelled) setAllTxns(txns)
@@ -119,7 +119,7 @@ export default function TransactionHistory({ onClose }) {
     // Simulate sending
     setTimeout(() => {
       // Log to email notifications
-      const log = JSON.parse(localStorage.getItem('email_notifications_log') || '[]')
+      const log = readScopedArray('email_notifications_log')
       const periodLabel = PERIOD_OPTIONS.find((p) => p.days === stmtPeriod)?.label || 'Custom'
       log.unshift({
         id: Date.now(),
@@ -129,7 +129,7 @@ export default function TransactionHistory({ onClose }) {
         sentAt: new Date().toISOString(),
       })
       if (log.length > 50) log.length = 50
-      localStorage.setItem('email_notifications_log', JSON.stringify(log))
+      writeScopedJson('email_notifications_log', log)
 
       window.dispatchEvent(new CustomEvent('email-sent', {
         detail: { to: email, subject: `Account Statement (${periodLabel})` }

@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { saveTransaction } from '../services/transactionService'
+import { readScopedArray, writeScopedJson } from '../services/userStorage'
 
 const LOANS_KEY = 'securebank_loans'
 const INVESTMENTS_KEY = 'securebank_financial_investments'
 
 function getActiveLoans() {
-  try { return JSON.parse(localStorage.getItem(LOANS_KEY) || '[]').filter((l) => l.status === 'active') }
-  catch { return [] }
+  return readScopedArray(LOANS_KEY).filter((l) => l.status === 'active')
 }
 
 function fmt(n) {
@@ -149,9 +149,9 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
         })
         const nextBalance = committed.balanceAfter ?? newBal
 
-        const loans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
+        const loans = readScopedArray(LOANS_KEY)
         loans.push(loan)
-        localStorage.setItem(LOANS_KEY, JSON.stringify(loans))
+        writeScopedJson(LOANS_KEY, loans)
         onBalanceUpdate?.(nextBalance)
         setLoanProcessing(false)
         setLoanSuccess(loan)
@@ -164,7 +164,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
   }
 
   async function handleLoanPayment(loanId) {
-    const allLoans = JSON.parse(localStorage.getItem(LOANS_KEY) || '[]')
+    const allLoans = readScopedArray(LOANS_KEY)
     const idx = allLoans.findIndex((l) => l.id === loanId)
     if (idx === -1) return
     const loan = allLoans[idx]
@@ -194,7 +194,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
         remainingMonths: newRemaining,
         status: newRemaining <= 0 ? 'paid' : 'active',
       }
-      localStorage.setItem(LOANS_KEY, JSON.stringify(allLoans))
+      writeScopedJson(LOANS_KEY, allLoans)
       onBalanceUpdate?.(nextBalance)
       setActiveLoans(getActiveLoans())
     } catch (err) {
@@ -233,9 +233,9 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
         })
         const nextBalance = committed.balanceAfter ?? newBal
 
-        const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
+        const investments = readScopedArray(INVESTMENTS_KEY)
         investments.push(inv)
-        localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
+        writeScopedJson(INVESTMENTS_KEY, investments)
         onBalanceUpdate?.(nextBalance)
         setInvestProcessing(false)
         setInvestSuccess(inv)
@@ -277,9 +277,9 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
         })
         const nextBalance = committed.balanceAfter ?? newBal
 
-        const investments = JSON.parse(localStorage.getItem(INVESTMENTS_KEY) || '[]')
+        const investments = readScopedArray(INVESTMENTS_KEY)
         investments.push(inv)
-        localStorage.setItem(INVESTMENTS_KEY, JSON.stringify(investments))
+        writeScopedJson(INVESTMENTS_KEY, investments)
         onBalanceUpdate?.(nextBalance)
         setMmProcessing(false)
         setMmSuccess(inv)

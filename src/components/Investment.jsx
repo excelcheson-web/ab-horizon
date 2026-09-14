@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { sendTransferEmail } from '../services/emailNotification'
 import { saveTransaction } from '../services/transactionService'
+import { readScopedArray, writeScopedJson } from '../services/userStorage'
 
 const PORTFOLIO_KEY = 'investment_portfolio'
 
@@ -46,7 +47,7 @@ const ETFS = [
 ]
 
 function getPortfolio() {
-  try { return JSON.parse(localStorage.getItem(PORTFOLIO_KEY) || '[]') } catch { return [] }
+  return readScopedArray(PORTFOLIO_KEY)
 }
 
 export default function Investment({ balance, onClose, onBalanceUpdate }) {
@@ -113,15 +114,14 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
         } else {
           port.push({ ticker: selected.ticker, name: selected.name, shares: qty, avgCost: selected.price, sector: selected.sector })
         }
-        localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(port))
+        writeScopedJson(PORTFOLIO_KEY, port)
         setPortfolio(port)
 
         onBalanceUpdate(nextBalance)
 
-        const notifs = JSON.parse(localStorage.getItem('securebank_notifications') || '[]')
+        const notifs = readScopedArray('securebank_notifications')
         notifs.push({ type: 'debit', amount: fmt(total), newBalance: fmt(nextBalance), read: false })
-        localStorage.setItem('securebank_notifications', JSON.stringify(notifs))
-        window.dispatchEvent(new StorageEvent('storage', { key: 'securebank_notifications', newValue: JSON.stringify(notifs) }))
+        writeScopedJson('securebank_notifications', notifs)
 
         sendTransferEmail(committed)
         setIsLoading(false)

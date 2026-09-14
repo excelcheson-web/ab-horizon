@@ -25,8 +25,14 @@ import {
   clearBiometric,
 } from '../services/biometricService'
 import { DEFAULT_SUSPENSION_MESSAGE } from '../services/adminService'
-import { loadTransactions, subscribeToTransactions } from '../services/transactionService'
+import {
+  getTransactionHistoryKey,
+  loadTransactions,
+  readCachedTransactions,
+  subscribeToTransactions,
+} from '../services/transactionService'
 import { loadAccountProfile, readBalance, subscribeToAccountProfile } from '../services/accountLedger'
+import { getScopedStorageKey, readScopedArray, writeScopedJson } from '../services/userStorage'
 import { useLanguage } from '../i18n/LanguageContext'
 import { LANGUAGES } from '../i18n/translations'
 
@@ -232,7 +238,7 @@ export default function Dashboard({ profile, onLogout }) {
   const [showGreeting, setShowGreeting] = useState(true)
   const [profilePic, setProfilePic] = useState(profile?.profilePic || null)
   const [recentTxns, setRecentTxns] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('transfer_history') || '[]') } catch { return [] }
+    try { return readCachedTransactions(profile?.uid || profile?.id) } catch { return [] }
   })
   const logoMenuRef = useRef(null)
   const loadingTimerRef = useRef(null)
@@ -240,10 +246,10 @@ export default function Dashboard({ profile, onLogout }) {
   const idleLogoutRef = useRef(null)
   const [idleWarning, setIdleWarning] = useState(false)
 
-  // ── Idle auto-logout (20 min) ─────────────────────────────
+  // Idle auto-logout (60 min)
   useEffect(() => {
-    const WARN_MS   = 19 * 60 * 1000   // show warning at 19 min
-    const LOGOUT_MS = 20 * 60 * 1000   // logout at 20 min
+    const WARN_MS   = 59 * 60 * 1000   // show warning at 59 min
+    const LOGOUT_MS = 60 * 60 * 1000   // logout at 60 min
 
     function doLogout() {
       clearTimeout(idleWarnRef.current)
@@ -482,8 +488,8 @@ export default function Dashboard({ profile, onLogout }) {
   // Check for pending notifications
   const checkNotifications = useCallback(() => {
     try {
-      const raw = localStorage.getItem(NOTIF_KEY)
-      const notifs = raw ? JSON.parse(raw) : []
+      const currentUid = profile?.uid || profile?.id
+      const notifs = readScopedArray(NOTIF_KEY, currentUid)
       const unreadList = notifs.filter((n) => !n.read)
       setHasUnread(unreadList.length > 0)
       const unread = unreadList[0]
@@ -491,14 +497,14 @@ export default function Dashboard({ profile, onLogout }) {
         setNotification(unread)
         // Mark as read
         const updated = notifs.map((n) => n.id === unread.id ? { ...n, read: true } : n)
-        localStorage.setItem(NOTIF_KEY, JSON.stringify(updated))
+        writeScopedJson(NOTIF_KEY, updated, currentUid)
         // Re-check remaining unread after marking
         setHasUnread(updated.filter((n) => !n.read).length > 0)
         // Auto-dismiss after 6 seconds
         setTimeout(() => setNotification(null), 6000)
       }
     } catch { /* ignore parse errors */ }
-  }, [])
+  }, [profile?.uid, profile?.id])
 
   useEffect(() => { checkNotifications() }, [checkNotifications])
 
@@ -534,34 +540,42 @@ export default function Dashboard({ profile, onLogout }) {
 
   useEffect(() => {
     const onStorage = (e) => {
+      const currentUid = profile?.uid || profile?.id
       if (e.key === STORAGE_KEY) setAdmin(getAdminData())
-      if (e.key === NOTIF_KEY) checkNotifications()
+      if (e.key === getScopedStorageKey(NOTIF_KEY, currentUid)) checkNotifications()
       if (e.key === 'system_notification') checkSysAlert()
-      if (e.key === 'transfer_history') {
+      if (e.key === getTransactionHistoryKey(currentUid)) {
         try {
           const txns = JSON.parse(e.newValue || '[]')
-          if (txns.length > 0) setRecentTxns(txns)
+          setRecentTxns(txns)
         } catch { /* silent */ }
       }
       if (e.key === 'admin_profile_pic_update') {
         try {
           const update = JSON.parse(e.newValue || '{}')
-          const currentUid = profile?.uid || profile?.id
           if (update.uid === currentUid) setProfilePic(update.url || null)
         } catch { /* silent */ }
       }
       if (e.key === 'admin_account_type_update') {
         try {
           const update = JSON.parse(e.newValue || '{}')
-          const currentUid = profile?.uid || profile?.id
           if (update.uid === currentUid) {
             localStorage.setItem('user_account_type', update.accountType || '')
           }
         } catch { /* silent */ }
       }
     }
+    const onTransferHistoryUpdated = (e) => {
+      const currentUid = profile?.uid || profile?.id
+      if (!currentUid || e.detail?.uid !== currentUid) return
+      setRecentTxns(e.detail.txns || [])
+    }
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener('transfer-history-updated', onTransferHistoryUpdated)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('transfer-history-updated', onTransferHistoryUpdated)
+    }
   }, [checkNotifications, checkSysAlert, profile?.uid, profile?.id])
 
   // Email-sent toast listener
@@ -1082,7 +1096,7 @@ export default function Dashboard({ profile, onLogout }) {
 
       {/* ── Weekly Spending Chart ──────────────────────────── */}
       {(() => {
-        const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+        const history = readCachedTransactions(profile?.uid || profile?.id)
         const now = new Date()
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
         // Build array for last 7 days
@@ -1256,11 +1270,11 @@ export default function Dashboard({ profile, onLogout }) {
 
       {/* ── Notification Center ──────────────────────────── */}
       {showNotifCenter && (() => {
-        const allNotifs = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]')
+        const allNotifs = readScopedArray(NOTIF_KEY, profile?.uid || profile?.id)
         const sysNotif = localStorage.getItem('system_notification')
         let sysItem = null
         try { if (sysNotif) sysItem = JSON.parse(sysNotif) } catch { /* ignore invalid JSON */ }
-        const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+        const history = readCachedTransactions(profile?.uid || profile?.id)
         return (
           <div className="nc-overlay" onClick={() => setShowNotifCenter(false)}>
             <div className="nc-panel" onClick={(e) => e.stopPropagation()}>
@@ -1348,10 +1362,10 @@ export default function Dashboard({ profile, onLogout }) {
                   setShowNotifCenter(true)
                   // Mark all notifications as read when opening center
                   try {
-                    const raw = localStorage.getItem(NOTIF_KEY)
-                    const notifs = raw ? JSON.parse(raw) : []
+                    const currentUid = profile?.uid || profile?.id
+                    const notifs = readScopedArray(NOTIF_KEY, currentUid)
                     const updated = notifs.map((n) => ({ ...n, read: true }))
-                    localStorage.setItem(NOTIF_KEY, JSON.stringify(updated))
+                    writeScopedJson(NOTIF_KEY, updated, currentUid)
                     setHasUnread(false)
                   } catch { /* ignore invalid JSON */ }
                 })

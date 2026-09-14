@@ -1,4 +1,5 @@
 import emailjs from '@emailjs/browser'
+import { getCurrentUserEmail } from './accountLedger'
 
 // Read from .env — fall back to the hardcoded values already working in prod
 const SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  || 'service_llxvb7m'
@@ -7,17 +8,47 @@ const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  || 'kLiAq79ZBAjG8ep
 
 emailjs.init(PUBLIC_KEY)
 
+const OTP_SESSION_KEY = 'securebank_last_otp'
+const OTP_TTL_MS = 10 * 60 * 1000
+
 let _lastCode = ''
+
+function persistOtp(code) {
+  try {
+    sessionStorage.setItem(OTP_SESSION_KEY, JSON.stringify({
+      code,
+      expiresAt: Date.now() + OTP_TTL_MS,
+    }))
+  } catch {
+    // Session storage is best-effort; the in-memory code still works.
+  }
+}
+
+function readPersistedOtp() {
+  try {
+    const raw = sessionStorage.getItem(OTP_SESSION_KEY)
+    if (!raw) return ''
+    const data = JSON.parse(raw)
+    if (!data?.code || Date.now() > data.expiresAt) {
+      sessionStorage.removeItem(OTP_SESSION_KEY)
+      return ''
+    }
+    return String(data.code)
+  } catch {
+    return ''
+  }
+}
 
 export function generateOtp() {
   const array = new Uint32Array(1)
   crypto.getRandomValues(array)
   _lastCode = String(array[0] % 1000000).padStart(6, '0')
+  persistOtp(_lastCode)
   return _lastCode
 }
 
 export function getLastCode() {
-  return _lastCode
+  return _lastCode || readPersistedOtp()
 }
 
 /**
@@ -34,7 +65,7 @@ export function sendOtp(firstArg, secondArg) {
 
   let recipientEmail = isAsyncStyle
     ? firstArg
-    : localStorage.getItem('user_email')
+    : getCurrentUserEmail()
 
   if (!recipientEmail) {
     try {
@@ -76,5 +107,5 @@ export function sendOtp(firstArg, secondArg) {
 }
 
 export function verifyOtp(input) {
-  return input === _lastCode
+  return String(input || '').trim() === getLastCode()
 }

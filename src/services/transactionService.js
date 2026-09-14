@@ -1,7 +1,12 @@
 import { collection, deleteDoc, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore'
 import { db } from './firebaseClient'
 import {
+  BALANCE_KEY,
+  BALANCE_OWNER_KEY,
+  cacheAccountSnapshot,
   commitAccountMutation,
+  centsFromAmount,
+  dollarsFromCents,
   getCurrentUserUid,
   getTransactionsQuery,
   inferDirection,
@@ -13,36 +18,88 @@ const GLOBAL_DELETED_BUCKET = '__global'
 
 const activeListeners = new Map()
 
+export function getTransactionHistoryKey(uid = getCurrentUserUid()) {
+  return uid ? `${HISTORY_KEY}:${uid}` : HISTORY_KEY
+}
+
 function getTxnId(txn) {
   const id = txn?.id ?? txn?.ref
   return id === undefined || id === null ? '' : String(id)
 }
 
-function readLocalTransactions() {
+function parseStoredTransactions(key) {
   try {
-    const txns = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    const txns = JSON.parse(localStorage.getItem(key) || '[]')
     return Array.isArray(txns) ? txns : []
   } catch {
     return []
   }
 }
 
-function dispatchHistoryEvent(txns) {
+function getTxnOwner(txn) {
+  return txn?.userId || txn?.uid || txn?.ownerUid || ''
+}
+
+function belongsToUser(txn, uid) {
+  const owner = getTxnOwner(txn)
+  return !owner || String(owner) === String(uid)
+}
+
+function readLegacyTransactions(uid) {
+  if (!uid) return []
+  return parseStoredTransactions(HISTORY_KEY).filter((txn) => {
+    const owner = getTxnOwner(txn)
+    return owner && String(owner) === String(uid)
+  })
+}
+
+function withTxnOwner(txns, uid) {
+  return uid
+    ? txns.map((txn) => ({ ...txn, userId: txn.userId || uid }))
+    : txns
+}
+
+function readLocalTransactions(uid = getCurrentUserUid()) {
+  if (!uid) return []
+
+  const scopedKey = getTransactionHistoryKey(uid)
+  const scopedTxns = parseStoredTransactions(scopedKey).filter((txn) => belongsToUser(txn, uid))
+  if (scopedTxns.length > 0) return scopedTxns
+
+  const legacyTxns = readLegacyTransactions(uid)
+  if (legacyTxns.length > 0) writeLocalTransactions(legacyTxns, uid)
+  return legacyTxns
+}
+
+export function readCachedTransactions(uid = getCurrentUserUid()) {
+  return readLocalTransactions(uid)
+}
+
+function dispatchHistoryEvent(txns, uid) {
   if (typeof window === 'undefined') return
+  const key = getTransactionHistoryKey(uid)
   try {
     window.dispatchEvent(new StorageEvent('storage', {
-      key: HISTORY_KEY,
+      key,
       newValue: JSON.stringify(txns),
     }))
   } catch {
-    window.dispatchEvent(new Event('transfer-history-updated'))
+    window.dispatchEvent(new CustomEvent('transfer-history-updated', {
+      detail: { uid, txns },
+    }))
   }
+  window.dispatchEvent(new CustomEvent('transfer-history-updated', {
+    detail: { uid, txns },
+  }))
 }
 
-function writeLocalTransactions(txns) {
+function writeLocalTransactions(txns, uid = getCurrentUserUid()) {
+  if (!uid) return
+
+  const ownedTxns = withTxnOwner(txns, uid)
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(txns))
-    dispatchHistoryEvent(txns)
+    localStorage.setItem(getTransactionHistoryKey(uid), JSON.stringify(ownedTxns))
+    dispatchHistoryEvent(ownedTxns, uid)
   } catch (err) {
     console.warn('[transactionService] local cache write failed:', err.message)
   }
@@ -56,13 +113,65 @@ function sortTransactions(txns) {
   })
 }
 
-function upsertLocalTransaction(txn) {
+function upsertLocalTransaction(txn, uid = getCurrentUserUid()) {
   const id = getTxnId(txn)
-  if (!id) return
+  if (!id || !uid) return
 
-  const history = readLocalTransactions()
+  const history = readLocalTransactions(uid)
   const filtered = history.filter((item) => getTxnId(item) !== id)
-  writeLocalTransactions(sortTransactions([{ ...txn, id }, ...filtered]))
+  writeLocalTransactions(sortTransactions([{ ...txn, id, userId: txn.userId || uid }, ...filtered]), uid)
+}
+
+function readLocalBalance(uid) {
+  try {
+    const owner = localStorage.getItem(BALANCE_OWNER_KEY)
+    const cached = Number(localStorage.getItem(BALANCE_KEY))
+    if ((!owner || owner === uid) && Number.isFinite(cached)) return cached
+
+    const user = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+    const profileBalance = Number(user.balance)
+    return Number.isFinite(profileBalance) ? profileBalance : 0
+  } catch {
+    return 0
+  }
+}
+
+function canFallbackToLocalCommit(err) {
+  const message = String(err?.message || '').toLowerCase()
+  return err?.code === 'permission-denied' ||
+    err?.code === 'unavailable' ||
+    message.includes('missing or insufficient permissions')
+}
+
+function buildLocalCommit(txn, uid, id, err) {
+  const amountCents = centsFromAmount(txn.amount)
+  const amount = dollarsFromCents(amountCents)
+  const direction = inferDirection(txn.type, txn.direction)
+  const sign = direction === 'incoming' ? 1 : -1
+  const providedAfter = Number(txn.balanceAfter)
+  const balanceAfter = Number.isFinite(providedAfter)
+    ? providedAfter
+    : readLocalBalance(uid) + (sign * amount)
+  const balanceAfterCents = centsFromAmount(balanceAfter)
+  const balanceBeforeCents = balanceAfterCents - (sign * amountCents)
+
+  return {
+    ...txn,
+    id,
+    userId: uid,
+    ref: txn.ref || id,
+    direction,
+    amount,
+    amountCents,
+    balanceBefore: dollarsFromCents(balanceBeforeCents),
+    balanceBeforeCents,
+    balanceAfter: dollarsFromCents(balanceAfterCents),
+    balanceAfterCents,
+    date: txn.date || new Date().toISOString(),
+    status: txn.status || 'completed',
+    syncStatus: 'local_only',
+    syncError: err?.message || 'Firestore sync failed.',
+  }
 }
 
 function readDeletedBuckets() {
@@ -161,25 +270,39 @@ export async function saveTransaction(txn, options = {}) {
     throw new Error('This transaction was deleted and cannot be reused.')
   }
 
-  const result = await commitAccountMutation({
-    uid,
-    amount: txn.amount,
-    direction: inferDirection(txn.type, txn.direction),
-    type: txn.type,
-    txnData: {
-      ...txn,
-      id,
-      ref: txn.ref || id,
-    },
-    idempotencyKey: txn.idempotencyKey || txn.ref || id,
-  })
+  let result
+  try {
+    result = await commitAccountMutation({
+      uid,
+      amount: txn.amount,
+      direction: inferDirection(txn.type, txn.direction),
+      type: txn.type,
+      txnData: {
+        ...txn,
+        id,
+        ref: txn.ref || id,
+      },
+      idempotencyKey: txn.idempotencyKey || txn.ref || id,
+    })
+  } catch (err) {
+    if (!canFallbackToLocalCommit(err)) throw err
+
+    const committed = buildLocalCommit(txn, uid, id, err)
+    console.warn('[transactionService] Firestore commit failed; saved simulated transaction locally:', err.message)
+    upsertLocalTransaction(committed, uid)
+    cacheAccountSnapshot(uid, {
+      balance: committed.balanceAfter,
+      balanceCents: committed.balanceAfterCents,
+    })
+    return committed
+  }
 
   const committed = result.transaction || {
     ...txn,
     id: result.transactionId || id,
     balanceAfter: result.balanceAfter,
   }
-  upsertLocalTransaction(committed)
+  upsertLocalTransaction(committed, uid)
   return committed
 }
 
@@ -187,8 +310,8 @@ export async function loadTransactions(uid) {
   const deletedIds = await loadDeletedTransactionIds(uid)
 
   if (!uid) {
-    const localTxns = pruneDeletedTransactions(readLocalTransactions(), deletedIds)
-    writeLocalTransactions(localTxns)
+    const localTxns = pruneDeletedTransactions(readLocalTransactions(uid), deletedIds)
+    writeLocalTransactions(localTxns, uid)
     return localTxns
   }
 
@@ -199,11 +322,11 @@ export async function loadTransactions(uid) {
       deletedIds
     )
     const sorted = sortTransactions(firestoreTxns)
-    writeLocalTransactions(sorted)
+    writeLocalTransactions(sorted, uid)
     return sorted
   } catch (err) {
     console.warn('[transactionService] Firestore load failed; showing cached history:', err.message)
-    return pruneDeletedTransactions(readLocalTransactions(), deletedIds)
+    return pruneDeletedTransactions(readLocalTransactions(uid), deletedIds)
   }
 }
 
@@ -224,12 +347,12 @@ export function subscribeToTransactions(uid, onUpdate) {
         deletedIds
       )
       const sorted = sortTransactions(txns)
-      writeLocalTransactions(sorted)
+      writeLocalTransactions(sorted, uid)
       onUpdate?.(sorted)
     },
     (err) => {
       console.warn('[transactionService] Real-time listener error:', err.message)
-      onUpdate?.(pruneDeletedTransactions(readLocalTransactions(), getDeletedIdsFromStorage(uid)))
+      onUpdate?.(pruneDeletedTransactions(readLocalTransactions(uid), getDeletedIdsFromStorage(uid)))
     }
   )
 

@@ -2,17 +2,14 @@ import { useState, useRef } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { sendOtp, verifyOtp } from '../services/otpService'
-import { saveTransaction } from '../services/transactionService'
+import { readCachedTransactions, saveTransaction } from '../services/transactionService'
 import { checkUserSuspensionStatus } from '../services/adminService'
-
-function getUserUid() {
-  try { return JSON.parse(localStorage.getItem('securebank_user') || '{}').uid || '' } catch { return '' }
-}
+import { getCurrentUserEmail, getCurrentUserUid } from '../services/accountLedger'
 
 // Get last N unique recipients for a given transfer type from localStorage
 function getRecentRecipients(type, limit = 6) {
   try {
-    const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+    const history = readCachedTransactions()
     const seen = new Set()
     const result = []
     for (const t of history) {
@@ -31,7 +28,7 @@ function getRecentRecipients(type, limit = 6) {
 // Get last N transfers for a given type
 function getTransferHistory(type, limit = 8) {
   try {
-    const history = JSON.parse(localStorage.getItem('transfer_history') || '[]')
+    const history = readCachedTransactions()
     return history.filter(t => t.type === type).slice(0, limit)
   } catch { return [] }
 }
@@ -58,7 +55,7 @@ function formatCurrency(n) {
 }
 
 function getUserEmail() {
-  try { return JSON.parse(localStorage.getItem('securebank_user') || '{}').email || '' } catch { return '' }
+  return getCurrentUserEmail()
 }
 
 const CloseIcon = () => (
@@ -188,10 +185,10 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
     setLoadingMsg('Sending verification code…')
 
     const email = getUserEmail()
-    const code = sendOtp(
-      () => {
+    sendOtp(
+      (sentCode) => {
         // Success
-        setOtpRef(code)
+        setOtpRef(sentCode)
         setOtpConfirmMsg(`A secure code has been sent to ${email}. Please check your inbox to confirm the transfer.`)
         setIsLoading(false)
         setOtpStep(true)
@@ -224,7 +221,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
     setOtpStep(false)
     setIsLoading(true)
     setLoadingMsg('Checking account status...')
-    const uid = getUserUid()
+    const uid = getCurrentUserUid()
     const suspensionStatus = await checkUserSuspensionStatus(uid)
     if (suspensionStatus.suspended) {
       setIsLoading(false)

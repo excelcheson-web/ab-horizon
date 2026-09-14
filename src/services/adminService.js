@@ -344,6 +344,7 @@ export async function createTransaction(uid, txnData) {
 
   const txn = {
     id: txnId,
+    userId: uid,
     ref: generatedRef,
     type: txnData.type || 'local', // 'local' | 'international' | 'credit' | 'debit'
     direction: txnData.direction || 'incoming', // 'incoming' | 'outgoing'
@@ -398,6 +399,7 @@ export async function createTransaction(uid, txnData) {
     tx.set(txnRef, committedTxn)
     tx.set(requestRef, {
       id: txn.idempotencyKey,
+      userId: uid,
       transactionId: String(txn.id),
       amountCents,
       direction: txn.direction,

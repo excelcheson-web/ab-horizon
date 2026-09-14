@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { saveTransaction } from '../services/transactionService'
+import { readScopedArray, writeScopedJson } from '../services/userStorage'
 
 const SCHEDULED_KEY = 'scheduled_transfers'
 
@@ -15,8 +16,7 @@ function formatCurrency(n) {
 }
 
 function getScheduled() {
-  try { return JSON.parse(localStorage.getItem(SCHEDULED_KEY) || '[]') }
-  catch { return [] }
+  return readScopedArray(SCHEDULED_KEY)
 }
 
 const CloseIcon = () => (
@@ -117,7 +117,7 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
       }
 
       if (changed && !cancelled) {
-        localStorage.setItem(SCHEDULED_KEY, JSON.stringify(updated))
+        writeScopedJson(SCHEDULED_KEY, updated)
         onBalanceUpdate(bal)
         setScheduled(updated)
       }
@@ -174,7 +174,7 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
 
     setTimeout(() => {
       const updated = [item, ...scheduled]
-      localStorage.setItem(SCHEDULED_KEY, JSON.stringify(updated))
+      writeScopedJson(SCHEDULED_KEY, updated)
       setScheduled(updated)
       setIsLoading(false)
       setSuccess(ref)
@@ -184,7 +184,7 @@ export default function ScheduledTransfer({ balance, onClose, onBalanceUpdate })
 
   const handleCancel = (id) => {
     const updated = scheduled.map((s) => s.id === id ? { ...s, status: 'cancelled' } : s)
-    localStorage.setItem(SCHEDULED_KEY, JSON.stringify(updated))
+    writeScopedJson(SCHEDULED_KEY, updated)
     setScheduled(updated)
   }
 
