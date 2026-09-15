@@ -67,10 +67,45 @@ service cloud.firestore {
       ]);
     }
 
+    function balanceCentsFrom(data) {
+      return data.get('balanceCents', null) is number
+        ? data.get('balanceCents', 0)
+        : (data.get('balance', 0) is number ? data.get('balance', 0) * 100 : 0);
+    }
+
     function currentBalanceCents() {
-      return resource.data.balanceCents is number
-        ? resource.data.balanceCents
-        : (resource.data.balance is number ? resource.data.balance * 100 : 0);
+      return balanceCentsFrom(resource.data);
+    }
+
+    function transactionMatchesProfileUpdate(userId, transactionId) {
+      let profilePath = /databases/$(database)/documents/profiles/$(userId);
+      let balanceBeforeCents = balanceCentsFrom(get(profilePath).data);
+      let profileAfter = getAfter(profilePath).data;
+
+      return exists(profilePath)
+        && existsAfter(profilePath)
+        && profileAfter.lastTransactionId == transactionId
+        && profileAfter.balanceCents is number
+        && request.resource.data.balanceBeforeCents == balanceBeforeCents
+        && request.resource.data.balanceAfterCents == profileAfter.balanceCents
+        && (
+          (request.resource.data.direction == 'incoming' && request.resource.data.balanceAfterCents == balanceBeforeCents + request.resource.data.amountCents) ||
+          (request.resource.data.direction == 'outgoing' && request.resource.data.balanceAfterCents == balanceBeforeCents - request.resource.data.amountCents)
+        );
+    }
+
+    function ledgerRequestMatchesTransaction(userId, requestId) {
+      let txnId = request.resource.data.transactionId;
+      let txnPath = /databases/$(database)/documents/profiles/$(userId)/transactions/$(txnId);
+      let txn = getAfter(txnPath).data;
+
+      return existsAfter(txnPath)
+        && txn.id == txnId
+        && txn.userId == userId
+        && txn.idempotencyKey == requestId
+        && txn.amountCents == request.resource.data.amountCents
+        && txn.direction == request.resource.data.direction
+        && txn.balanceAfterCents == request.resource.data.balanceAfterCents;
     }
 
     function validTransactionShape(userId, transactionId) {
@@ -84,7 +119,8 @@ service cloud.firestore {
           request.resource.data.direction == 'incoming' ||
           request.resource.data.direction == 'outgoing'
         )
-        && request.resource.data.balanceAfterCents >= 0;
+        && request.resource.data.balanceAfterCents >= 0
+        && transactionMatchesProfileUpdate(userId, transactionId);
     }
 
     function ledgerProfileUpdate(userId) {
@@ -126,7 +162,8 @@ service cloud.firestore {
         && (
           request.resource.data.direction == 'incoming' ||
           request.resource.data.direction == 'outgoing'
-        );
+        )
+        && ledgerRequestMatchesTransaction(userId, requestId);
     }
 
     match /profiles/{userId} {
