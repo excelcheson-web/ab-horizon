@@ -31,7 +31,7 @@ try {
       console.log(JSON.stringify({ check: `live-${name}`, status: response.status(), title: await page.title(),
         scripts: await page.locator('script[type="module"][src]').evaluateAll(scripts => scripts.map(script => script.getAttribute('src'))) }))
       if (name === 'desktop') {
-        const admin = await page.goto(new URL('admin-portal-99.html', baseUrl).href)
+        const admin = await page.goto(new URL('admin-portal-99.html', baseUrl).href, { waitUntil: 'domcontentloaded' })
         assert.equal(admin.status(), 200)
         await page.getByText('Admin Operations Panel', { exact: true }).waitFor()
         assert.deepEqual(errors, [])
