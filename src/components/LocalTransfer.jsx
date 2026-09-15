@@ -90,7 +90,6 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   const [otpStep, setOtpStep] = useState(false)
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', ''])
   const [otpError, setOtpError] = useState('')
-  const [otpRef, setOtpRef] = useState('')
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
   const [pendingTxn, setPendingTxn] = useState(null)
   const otpRefs = useRef([])
@@ -99,11 +98,13 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   const [txnHistory] = useState(() => getTransferHistory('local'))
 
   const update = (field, value) => {
+    setPendingTxn(null)
     setForm((p) => ({ ...p, [field]: value }))
     setError('')
   }
 
   const fillFromRecipient = (t) => {
+    setPendingTxn(null)
     setForm({
       beneficiary: t.beneficiary || '',
       accountNumber: t.accountNumber || '',
@@ -114,6 +115,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   }
 
   const repeatTransfer = (t) => {
+    setPendingTxn(null)
     setForm({
       beneficiary: t.beneficiary || '',
       accountNumber: t.accountNumber || '',
@@ -163,9 +165,9 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
 
     // Build pending txn
     const newBalance = balance - amt
-    const ref = genRef()
+    const ref = pendingTxn?.ref || genRef()
     setPendingTxn({
-      id: Date.now(),
+      id: pendingTxn?.id || Date.now(),
       ref,
       type: 'local',
       beneficiary: beneficiary.trim(),
@@ -173,7 +175,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
       bankName: bankName.trim(),
       amount: amt,
       balanceAfter: newBalance,
-      date: new Date().toISOString(),
+      date: pendingTxn?.date || new Date().toISOString(),
       direction: 'outgoing',
     })
 
@@ -186,19 +188,19 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
 
     const email = getUserEmail()
     sendOtp(
-      (sentCode) => {
+      () => {
         // Success
-        setOtpRef(sentCode)
         setOtpConfirmMsg(`A secure code has been sent to ${email}. Please check your inbox to confirm the transfer.`)
         setIsLoading(false)
         setOtpStep(true)
       },
       (err) => {
         // Failure
-        alert('EmailJS Error: ' + JSON.stringify(err))
+        console.warn('[LocalTransfer] OTP delivery failed:', err.message)
+        setError('Could not send the verification email. Please try again.')
         setIsLoading(false)
-        setPendingTxn(null)
-      }
+      },
+      ref
     )
   }
 
@@ -210,11 +212,11 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
     }
 
     // Verify against service (or demo ref)
-    const valid = otpRef ? entered === otpRef : verifyOtp(entered)
+    const valid = verifyOtp(entered, { context: pendingTxn?.ref })
     if (!valid) {
-      setOtpError('Invalid code. Please try again.')
+      setOtpError('Invalid or expired code. Cancel and request a new code if needed.')
       setOtpCode(['', '', '', '', '', ''])
-      setTimeout(() => otpRefs.current[0]?.focus(), 100)
+      otpRefs.current[0]?.focus()
       return
     }
 
@@ -240,7 +242,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
       const txn = pendingTxn
       try {
         const committed = await saveTransaction(txn)
-        const nextBalance = committed.balanceAfter ?? txn.balanceAfter
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
         onBalanceUpdate(nextBalance)
         sendTransferEmail(committed)
 
@@ -248,7 +250,6 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
         setReceipt(committed)
       } catch (err) {
         setIsLoading(false)
-        setPendingTxn(null)
         setError(err.message || 'Transfer failed. Please try again.')
       }
     }, 1800)
@@ -299,7 +300,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
           <button className="tf-btn tf-btn--primary" onClick={handleOtpVerify} disabled={otpCode.join('').length < 6}>
             Confirm Transfer
           </button>
-          <button className="tf-btn tf-btn--ghost" onClick={() => { setOtpStep(false); setPendingTxn(null) }}>
+          <button className="tf-btn tf-btn--ghost" onClick={() => setOtpStep(false)}>
             Cancel
           </button>
         </div>

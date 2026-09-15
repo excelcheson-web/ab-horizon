@@ -147,7 +147,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
           direction: 'incoming',
           memo: `${loanTerm.months}-month loan at ${loanTerm.apr}% APR`,
         })
-        const nextBalance = committed.balanceAfter ?? newBal
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
         const loans = readScopedArray(LOANS_KEY)
         loans.push(loan)
@@ -187,7 +187,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
         direction: 'outgoing',
         memo: `Monthly payment for ${loan.id}${newRemaining <= 0 ? ' – FULLY PAID' : ` – ${newRemaining} months remaining`}`,
       })
-      const nextBalance = committed.balanceAfter ?? newBal
+      const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
       allLoans[idx] = {
         ...loan,
@@ -231,7 +231,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
           direction: 'outgoing',
           memo: `${type === 'pension' ? 'Pension' : 'Fund'} investment – ${manager.returnRate} expected return`,
         })
-        const nextBalance = committed.balanceAfter ?? newBal
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
         const investments = readScopedArray(INVESTMENTS_KEY)
         investments.push(inv)
@@ -275,7 +275,7 @@ export default function FinancialServices({ balance = 0, onClose, onBalanceUpdat
           direction: 'outgoing',
           memo: `Money market fund – ${MONEY_MARKET.apy}% APY`,
         })
-        const nextBalance = committed.balanceAfter ?? newBal
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
         const investments = readScopedArray(INVESTMENTS_KEY)
         investments.push(inv)

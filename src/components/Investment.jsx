@@ -104,7 +104,7 @@ export default function Investment({ balance, onClose, onBalanceUpdate }) {
     setTimeout(async () => {
       try {
         const committed = await saveTransaction(txn)
-        const nextBalance = committed.balanceAfter ?? newBalance
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
         const port = getPortfolio()
         const existing = port.find((p) => p.ticker === selected.ticker)

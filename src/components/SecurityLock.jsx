@@ -19,6 +19,11 @@ export default function SecurityLock({ children, onForceLogout }) {
   const timerRef = useRef(null)
   const reloginTimerRef = useRef(null)
   const pinRefs = useRef([])
+  const onForceLogoutRef = useRef(onForceLogout)
+
+  useEffect(() => {
+    onForceLogoutRef.current = onForceLogout
+  }, [onForceLogout])
 
   const getStoredPin = () => {
     try {
@@ -33,9 +38,9 @@ export default function SecurityLock({ children, onForceLogout }) {
     clearTimeout(reloginTimerRef.current)
     timerRef.current = setTimeout(() => setLocked(true), IDLE_TIMEOUT)
     reloginTimerRef.current = setTimeout(() => {
-      if (onForceLogout) onForceLogout()
+      onForceLogoutRef.current?.()
     }, RELOGIN_TIMEOUT)
-  }, [onForceLogout])
+  }, [])
 
   useEffect(() => {
     if (!getStoredPin()) return

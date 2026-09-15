@@ -103,7 +103,7 @@ export default function BillPayment({ balance, onClose, onBalanceUpdate }) {
 
       try {
         const committed = await saveTransaction(txn)
-        const nextBalance = committed.balanceAfter ?? newBalance
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
 
         onBalanceUpdate(nextBalance)
 

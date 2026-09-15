@@ -1,6 +1,7 @@
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -38,12 +39,14 @@ export function readBalance(profile = {}) {
 
 export function cacheAccountSnapshot(uid, profile = {}) {
   if (!uid || typeof localStorage === 'undefined') return
+  if (auth.currentUser?.uid && auth.currentUser.uid !== uid) return
 
   const balance = readBalance(profile)
   try {
     const cached = JSON.parse(localStorage.getItem('securebank_user') || '{}')
+    const ownedCache = (cached.uid || cached.id) === uid ? cached : {}
     localStorage.setItem('securebank_user', JSON.stringify({
-      ...cached,
+      ...ownedCache,
       ...profile,
       uid,
       id: uid,
@@ -161,7 +164,8 @@ export async function commitAccountMutation({
   const sign = directionSign(normalizedDirection, normalizedType)
   const nowIso = new Date().toISOString()
 
-  const result = await runTransaction(db, async (firestoreTxn) => {
+  let observedBalanceCents
+  const commit = () => runTransaction(db, async (firestoreTxn) => {
     const profileRef = doc(db, 'profiles', uid)
     const txnRef = doc(db, 'profiles', uid, 'transactions', txnId)
     const requestRef = doc(db, 'profiles', uid, 'ledgerRequests', requestId)
@@ -180,15 +184,25 @@ export async function commitAccountMutation({
       const existingTxnId = existing.transactionId || txnId
       const existingBalanceAfterCents = Math.round(Number(existing.balanceAfterCents))
       const profileBalanceCents = readBalanceCents(profileSnap.data())
-      if (!Number.isFinite(existingBalanceAfterCents) || profileBalanceCents !== existingBalanceAfterCents) {
-        throw new Error('This transfer reference already exists, but the server balance does not match it. Please contact support before retrying.')
+      if (!Number.isFinite(existingBalanceAfterCents) || existing.amountCents !== amountCents ||
+          existing.direction !== normalizedDirection || existing.type !== normalizedType) {
+        throw new Error('This transfer reference already exists with different details. Please contact support before retrying.')
       }
       const existingTxnSnap = await firestoreTxn.get(doc(db, 'profiles', uid, 'transactions', String(existingTxnId)))
+      const existingTxn = existingTxnSnap.data()
+      if (!existingTxnSnap.exists() || existingTxn.idempotencyKey !== requestId ||
+          existingTxn.amountCents !== amountCents || existingTxn.direction !== normalizedDirection ||
+          existingTxn.balanceAfterCents !== existingBalanceAfterCents ||
+          ['beneficiary', 'accountNumber', 'iban', 'swift', 'bankName', 'country', 'description'].some(
+            key => (existingTxn[key] || '') !== (txnData[key] || '')
+          )) {
+        throw new Error('This transfer reference does not match the saved transaction. Please contact support before retrying.')
+      }
       return {
-        transaction: existingTxnSnap.exists() ? { id: existingTxnSnap.id, ...existingTxnSnap.data() } : null,
+        transaction: { id: existingTxnSnap.id, ...existingTxn },
         transactionId: existingTxnId,
-        balanceAfter: dollarsFromCents(existingBalanceAfterCents),
-        balanceAfterCents: existingBalanceAfterCents,
+        balanceAfter: dollarsFromCents(profileBalanceCents),
+        balanceAfterCents: profileBalanceCents,
         alreadyCommitted: true,
         serverCommitted: true,
       }
@@ -200,6 +214,7 @@ export async function commitAccountMutation({
     }
 
     const currentCents = readBalanceCents(profile)
+    observedBalanceCents = currentCents
     const nextCents = currentCents + (sign * amountCents)
 
     if (nextCents < 0) {
@@ -253,6 +268,20 @@ export async function commitAccountMutation({
       serverCommitted: true,
     }
   })
+
+  let result
+  for (let attempt = 0; ; attempt++) {
+    try {
+      result = await commit()
+      break
+    } catch (err) {
+      if (err.code !== 'permission-denied' || attempt >= 2 || observedBalanceCents === undefined) throw err
+      // Rules can see a concurrent debit before the SDK reports a write conflict.
+      // Retry the same reference only after confirming that the server balance changed.
+      const latest = await getDocFromServer(doc(db, 'profiles', uid)).catch(() => null)
+      if (!latest?.exists() || readBalanceCents(latest.data()) === observedBalanceCents) throw err
+    }
+  }
 
   if (Number.isFinite(result.balanceAfter)) {
     cacheAccountSnapshot(uid, {

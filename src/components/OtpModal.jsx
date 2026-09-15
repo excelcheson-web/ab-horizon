@@ -15,12 +15,14 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
   const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
-  const [fallbackCode, setDemoCode] = useState('')
+  const [delivered, setDelivered] = useState(false)
   const refs = useRef([])
+  const sentTo = useRef('')
 
   // Send OTP on mount (use email as dependency so it fires once email is available)
   useEffect(() => {
-    if (email) {
+    if (email && sentTo.current !== email) {
+      sentTo.current = email
       doSend(email)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,22 +37,24 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
 
   async function doSend(recipientEmail) {
     const target = recipientEmail || email
-    console.log('OtpModal doSend → email prop:', target)
     if (!target) {
       setError('No email address provided.')
       setSending(false)
       return
     }
     setSending(true)
+    setDelivered(false)
     setError('')
     setOtp(['', '', '', '', '', ''])
-    const result = await sendOtp(target, variant)
-    setSending(false)
-    setResendTimer(30)
-    // Always show the backup code so the user can verify even if the email
-    // goes to spam or the EmailJS template is misconfigured.
-    // The code is shown as a "backup" below the input boxes.
-    setDemoCode(result.code)
+    try {
+      await sendOtp(target, variant)
+      setDelivered(true)
+      setResendTimer(30)
+    } catch {
+      setError('Could not send the verification email. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   function handleChange(idx, value) {
@@ -89,7 +93,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
     setVerifying(true)
     // Small delay for UX
     await new Promise((r) => setTimeout(r, 400))
-    if (verifyOtp(code)) {
+    if (verifyOtp(code, { email, context: variant })) {
       onVerified()
     } else {
       setError('Invalid code. Please try again.')
@@ -119,18 +123,9 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
         <p className="otp-subtitle">
           {sending
             ? 'Sending verification code…'
-            : <>We sent a 6-digit code to <strong>{masked}</strong></>
+            : delivered ? <>We sent a 6-digit code to <strong>{masked}</strong></> : 'Verification email was not sent.'
           }
         </p>
-
-        {/* Backup code — always shown so user can verify if email goes to spam */}
-        {fallbackCode && !sending && (
-          <div className="otp-code-hint">
-            📧 Code sent to your email — check inbox &amp; spam folder<br />
-            <span style={{ opacity: 0.7, fontSize: '0.78rem' }}>Your code: </span>
-            <strong style={{ letterSpacing: '0.15em', fontSize: '1rem' }}>{fallbackCode}</strong>
-          </div>
-        )}
 
         {/* OTP boxes */}
         <div className="otp-row">
@@ -145,7 +140,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
               value={d}
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
-              disabled={sending || verifying}
+              disabled={sending || verifying || !delivered}
               autoComplete="one-time-code"
               autoFocus={i === 0}
             />
@@ -158,7 +153,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
         <button
           className="otp-verify-btn"
           onClick={handleVerify}
-          disabled={otp.join('').length < 6 || sending || verifying}
+          disabled={otp.join('').length < 6 || sending || verifying || !delivered}
         >
           {verifying ? (
             <span className="otp-spinner" />
@@ -172,7 +167,7 @@ export default function OtpModal({ email, onVerified, onCancel, variant = 'onboa
           {resendTimer > 0 ? (
             <>Resend code in <strong>{resendTimer}s</strong></>
           ) : (
-            <button className="otp-resend-btn" onClick={doSend} disabled={sending}>
+            <button className="otp-resend-btn" onClick={() => doSend(email)} disabled={sending}>
               Resend Code
             </button>
           )}

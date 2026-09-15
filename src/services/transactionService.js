@@ -1,11 +1,7 @@
 import { collection, deleteDoc, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore'
 import { db } from './firebaseClient'
 import {
-  BALANCE_KEY,
-  BALANCE_OWNER_KEY,
   commitAccountMutation,
-  centsFromAmount,
-  dollarsFromCents,
   getCurrentUserUid,
   getTransactionsQuery,
   inferDirection,
@@ -121,21 +117,7 @@ function upsertLocalTransaction(txn, uid = getCurrentUserUid()) {
   writeLocalTransactions(sortTransactions([{ ...txn, id, userId: txn.userId || uid }, ...filtered]), uid)
 }
 
-function readLocalBalance(uid) {
-  try {
-    const owner = localStorage.getItem(BALANCE_OWNER_KEY)
-    const cached = Number(localStorage.getItem(BALANCE_KEY))
-    if ((!owner || owner === uid) && Number.isFinite(cached)) return cached
-
-    const user = JSON.parse(localStorage.getItem('securebank_user') || '{}')
-    const profileBalance = Number(user.balance)
-    return Number.isFinite(profileBalance) ? profileBalance : 0
-  } catch {
-    return 0
-  }
-}
-
-function canFallbackToLocalCommit(err) {
+function isServerCommitError(err) {
   const message = String(err?.message || '').toLowerCase()
   return err?.code === 'permission-denied' ||
     err?.code === 'unavailable' ||
@@ -143,42 +125,14 @@ function canFallbackToLocalCommit(err) {
 }
 
 function toServerCommitError(err) {
-  if (!canFallbackToLocalCommit(err)) return err
-  const wrapped = new Error('Transaction was not completed because the bank server did not confirm the balance update. Please refresh and try again.')
+  if (!isServerCommitError(err)) return err
+  const message = err?.code === 'unavailable'
+    ? 'Transfer confirmation is unavailable. Check your history before starting a new transfer, or retry this transfer.'
+    : 'Transaction was not completed because the bank server did not confirm the balance update. Please try again.'
+  const wrapped = new Error(message)
   wrapped.code = err?.code || 'server-commit-failed'
   wrapped.cause = err
   return wrapped
-}
-
-function buildLocalCommit(txn, uid, id, err) {
-  const amountCents = centsFromAmount(txn.amount)
-  const amount = dollarsFromCents(amountCents)
-  const direction = inferDirection(txn.type, txn.direction)
-  const sign = direction === 'incoming' ? 1 : -1
-  const providedAfter = Number(txn.balanceAfter)
-  const balanceAfter = Number.isFinite(providedAfter)
-    ? providedAfter
-    : readLocalBalance(uid) + (sign * amount)
-  const balanceAfterCents = centsFromAmount(balanceAfter)
-  const balanceBeforeCents = balanceAfterCents - (sign * amountCents)
-
-  return {
-    ...txn,
-    id,
-    userId: uid,
-    ref: txn.ref || id,
-    direction,
-    amount,
-    amountCents,
-    balanceBefore: dollarsFromCents(balanceBeforeCents),
-    balanceBeforeCents,
-    balanceAfter: dollarsFromCents(balanceAfterCents),
-    balanceAfterCents,
-    date: txn.date || new Date().toISOString(),
-    status: txn.status || 'pending_sync',
-    syncStatus: 'local_only',
-    syncError: err?.message || 'Firestore sync failed.',
-  }
 }
 
 function readDeletedBuckets() {
@@ -270,7 +224,6 @@ export function removeTransactionFromLocalHistory(txnId, uid = null) {
 
 export async function saveTransaction(txn, options = {}) {
   const uid = options.uid || getCurrentUserUid()
-  const allowLocalFallback = options.allowLocalFallback === true
   const id = getTxnId(txn)
   if (!uid) throw new Error('You must be signed in before making a transaction.')
   if (!id) throw new Error('Transaction ID is required.')
@@ -293,14 +246,7 @@ export async function saveTransaction(txn, options = {}) {
       idempotencyKey: txn.idempotencyKey || txn.ref || id,
     })
   } catch (err) {
-    if (!allowLocalFallback || !canFallbackToLocalCommit(err)) {
-      throw toServerCommitError(err)
-    }
-
-    const committed = buildLocalCommit(txn, uid, id, err)
-    console.warn('[transactionService] Firestore commit failed; saved transaction locally without changing the server balance:', err.message)
-    upsertLocalTransaction(committed, uid)
-    return committed
+    throw toServerCommitError(err)
   }
 
   if (result?.serverCommitted !== true) {
@@ -314,7 +260,7 @@ export async function saveTransaction(txn, options = {}) {
     balanceAfterCents: result.balanceAfterCents,
   }
   upsertLocalTransaction(committed, uid)
-  return committed
+  return { ...committed, accountBalance: result.balanceAfter }
 }
 
 export async function loadTransactions(uid) {

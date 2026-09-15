@@ -68,7 +68,7 @@ export default function DepositOverlay({ balance, onClose, onBalanceUpdate }) {
 
       try {
         const committed = await saveTransaction(txn)
-        const nextBalance = committed.balanceAfter ?? newBalance
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
         onBalanceUpdate(nextBalance)
 
         setIsLoading(false)

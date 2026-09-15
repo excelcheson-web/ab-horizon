@@ -94,7 +94,6 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const [otpStep, setOtpStep] = useState(false)
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', ''])
   const [otpError, setOtpError] = useState('')
-  const [otpRef, setOtpRef] = useState('')
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
   const [pendingTxn, setPendingTxn] = useState(null)
   const otpRefs = useRef([])
@@ -103,11 +102,13 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const [txnHistory] = useState(() => getTransferHistory('international'))
 
   const update = (field, value) => {
+    setPendingTxn(null)
     setForm((p) => ({ ...p, [field]: value }))
     setError('')
   }
 
   const fillFromRecipient = (t) => {
+    setPendingTxn(null)
     setForm(p => ({
       ...p,
       beneficiary: t.beneficiary || '',
@@ -122,6 +123,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   }
 
   const repeatTransfer = (t) => {
+    setPendingTxn(null)
     setForm(p => ({
       ...p,
       beneficiary: t.beneficiary || '',
@@ -175,9 +177,9 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
 
     // Build pending transaction
     const newBalance = balance - amt
-    const ref = genRef()
+    const ref = pendingTxn?.ref || genRef()
     setPendingTxn({
-      id: Date.now(),
+      id: pendingTxn?.id || Date.now(),
       ref,
       type: 'international',
       beneficiary: beneficiary.trim(),
@@ -188,7 +190,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       amount: amt,
       description: form.description.trim(),
       balanceAfter: newBalance,
-      date: new Date().toISOString(),
+      date: pendingTxn?.date || new Date().toISOString(),
       direction: 'outgoing',
     })
 
@@ -205,19 +207,19 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
 
       const email = getUserEmail()
       sendOtp(
-        (sentCode) => {
+        () => {
           // Success
-          setOtpRef(sentCode)
           setOtpConfirmMsg(`A secure code has been sent to ${email}. Please check your inbox to confirm the transfer.`)
           setIsLoading(false)
           setOtpStep(true)
         },
         (err) => {
           // Failure
-          alert('EmailJS Error: ' + JSON.stringify(err))
+          console.warn('[InternationalTransfer] OTP delivery failed:', err.message)
+          setError('Could not send the verification email. Please try again.')
           setIsLoading(false)
-          setPendingTxn(null)
-        }
+        },
+        ref
       )
     }, 3000)
   }
@@ -230,11 +232,11 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
     }
 
     // Verify against service (or demo ref)
-    const valid = otpRef ? entered === otpRef : verifyOtp(entered)
+    const valid = verifyOtp(entered, { context: pendingTxn?.ref })
     if (!valid) {
-      setOtpError('Invalid code. Please try again.')
+      setOtpError('Invalid or expired code. Cancel and request a new code if needed.')
       setOtpCode(['', '', '', '', '', ''])
-      setTimeout(() => otpRefs.current[0]?.focus(), 100)
+      otpRefs.current[0]?.focus()
       return
     }
 
@@ -260,7 +262,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       const txn = pendingTxn
       try {
         const committed = await saveTransaction(txn)
-        const nextBalance = committed.balanceAfter ?? txn.balanceAfter
+        const nextBalance = committed.accountBalance ?? committed.balanceAfter
         onBalanceUpdate(nextBalance)
         sendTransferEmail(committed)
 
@@ -268,7 +270,6 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
         setReceipt(committed)
       } catch (err) {
         setIsLoading(false)
-        setPendingTxn(null)
         setError(err.message || 'Transfer failed. Please try again.')
       }
     }, 1800)
@@ -319,7 +320,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
           <button className="tf-btn tf-btn--primary" onClick={handleOtpVerify} disabled={otpCode.join('').length < 6}>
             Confirm Transfer
           </button>
-          <button className="tf-btn tf-btn--ghost" onClick={() => { setOtpStep(false); setPendingTxn(null) }}>
+          <button className="tf-btn tf-btn--ghost" onClick={() => setOtpStep(false)}>
             Cancel
           </button>
         </div>

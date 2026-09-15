@@ -1,111 +1,79 @@
 import emailjs from '@emailjs/browser'
-import { getCurrentUserEmail } from './accountLedger'
+import { getCurrentUserEmail, getCurrentUserUid } from './accountLedger'
 
-// Read from .env — fall back to the hardcoded values already working in prod
-const SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  || 'service_llxvb7m'
+const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_llxvb7m'
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_OTP_TEMPLATE_ID || 'template_pxc66y7'
-const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  || 'kLiAq79ZBAjG8epzA'
-
+const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'kLiAq79ZBAjG8epzA'
 emailjs.init(PUBLIC_KEY)
 
 const OTP_SESSION_KEY = 'securebank_last_otp'
 const OTP_TTL_MS = 10 * 60 * 1000
+const MAX_ATTEMPTS = 5
+let challenge = null
 
-let _lastCode = ''
-
-function persistOtp(code) {
-  try {
-    sessionStorage.setItem(OTP_SESSION_KEY, JSON.stringify({
-      code,
-      expiresAt: Date.now() + OTP_TTL_MS,
-    }))
-  } catch {
-    // Session storage is best-effort; the in-memory code still works.
-  }
+export function clearOtp() {
+  challenge = null
+  try { sessionStorage.removeItem(OTP_SESSION_KEY) } catch { /* Storage may be unavailable. */ }
 }
 
-function readPersistedOtp() {
-  try {
-    const raw = sessionStorage.getItem(OTP_SESSION_KEY)
-    if (!raw) return ''
-    const data = JSON.parse(raw)
-    if (!data?.code || Date.now() > data.expiresAt) {
-      sessionStorage.removeItem(OTP_SESSION_KEY)
-      return ''
-    }
-    return String(data.code)
-  } catch {
-    return ''
-  }
+function persistOtp() {
+  try { sessionStorage.setItem(OTP_SESSION_KEY, JSON.stringify(challenge)) } catch { /* Keep the in-memory challenge. */ }
 }
 
-export function generateOtp() {
+function readChallenge({ context = '', email = getCurrentUserEmail() } = {}) {
+  if (!challenge) {
+    try { challenge = JSON.parse(sessionStorage.getItem(OTP_SESSION_KEY) || 'null') } catch { return null }
+  }
+  if (!challenge || !Number.isFinite(challenge.expiresAt) || Date.now() >= challenge.expiresAt) {
+    clearOtp()
+    return null
+  }
+  if (challenge.uid !== getCurrentUserUid() || challenge.email !== email || challenge.context !== context) return null
+  return challenge
+}
+
+export function generateOtp({ context = '', email = getCurrentUserEmail() } = {}) {
   const array = new Uint32Array(1)
   crypto.getRandomValues(array)
-  _lastCode = String(array[0] % 1000000).padStart(6, '0')
-  persistOtp(_lastCode)
-  return _lastCode
+  challenge = {
+    code: String(array[0] % 1000000).padStart(6, '0'),
+    uid: getCurrentUserUid(), email, context, attempts: 0,
+    expiresAt: Date.now() + OTP_TTL_MS,
+  }
+  persistOtp()
+  return challenge.code
 }
 
-export function getLastCode() {
-  return _lastCode || readPersistedOtp()
+export function getLastCode(options) {
+  return readChallenge(options)?.code || ''
 }
 
-/**
- * Send an OTP email via EmailJS.
- *
- * Two calling patterns:
- *   sendOtp(email, variant)     → Promise<{ code, fallback }>   (OtpModal)
- *   sendOtp(onSuccess, onError) → returns code string           (transfers)
- */
-export function sendOtp(firstArg, secondArg) {
-  const code = generateOtp()
-
-  const isAsyncStyle = typeof firstArg === 'string'
-
-  let recipientEmail = isAsyncStyle
-    ? firstArg
-    : getCurrentUserEmail()
-
-  if (!recipientEmail) {
-    try {
-      const stored = JSON.parse(localStorage.getItem('securebank_user') || 'null')
-      if (stored?.email) {
-        recipientEmail = stored.email
-        localStorage.setItem('user_email', stored.email)
-      }
-    } catch { /* silent */ }
-  }
-
-  // Exactly the three params your EmailJS template expects
-  const templateParams = {
-    to_email:    recipientEmail,
-    otp_code:    code,
-    expiry_time: '10',
-  }
-
-  if (isAsyncStyle) {
-    return emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
-      .then(() => ({ code, fallback: false }))
-      .catch((err) => {
-        console.error('[otpService] EmailJS error:', err)
-        return { code, fallback: true }
-      })
-  } else {
-    const onSuccess = firstArg
-    const onError   = secondArg
-
-    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
-      .then(() => { if (onSuccess) onSuccess(code) })
-      .catch((err) => {
-        console.error('[otpService] EmailJS error:', err)
-        if (onError) onError(err)
-      })
-
-    return code
-  }
+// Supports the onboarding promise API and the transfer callback API.
+export function sendOtp(firstArg, secondArg, context = '') {
+  const asyncStyle = typeof firstArg === 'string'
+  const email = asyncStyle ? firstArg : getCurrentUserEmail()
+  const code = generateOtp({ email, context: asyncStyle ? secondArg || '' : context })
+  const request = email
+    ? emailjs.send(SERVICE_ID, TEMPLATE_ID, { to_email: email, otp_code: code, expiry_time: '10' }, PUBLIC_KEY)
+    : Promise.reject(new Error('No email address provided.'))
+  const delivery = request.catch(err => {
+    if (challenge?.code === code) clearOtp()
+    throw err
+  })
+  if (asyncStyle) return delivery.then(() => ({ fallback: false }))
+  delivery.then(() => firstArg?.()).catch(err => secondArg?.(err))
 }
 
-export function verifyOtp(input) {
-  return String(input || '').trim() === getLastCode()
+export function verifyOtp(input, options) {
+  const current = readChallenge(options)
+  const entered = String(input || '').trim()
+  if (!current || !/^\d{6}$/.test(entered)) return false
+  if (entered !== current.code) {
+    current.attempts += 1
+    if (current.attempts >= MAX_ATTEMPTS) clearOtp()
+    else persistOtp()
+    return false
+  }
+  clearOtp()
+  return true
 }
