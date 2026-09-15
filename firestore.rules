@@ -12,12 +12,12 @@ service cloud.firestore {
     function hasAdminProfile() {
       return isAuthenticated()
         && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
-        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true;
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email == 'karladelbert83@gmail.com' ||
+        request.auth.token.get('email', '') == 'karladelbert83@gmail.com' ||
         hasAdminProfile()
       );
     }
@@ -98,7 +98,7 @@ service cloud.firestore {
           'lastTransactionId',
           'updatedAt'
         ])
-        && resource.data.suspended != true
+        && resource.data.get('suspended', false) != true
         && request.resource.data.lastTransactionId is string
         && existsAfter(txnPath)
         && request.resource.data.balanceCents is number
