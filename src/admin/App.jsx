@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
 import {
-  fetchAllUsers,
   getUserByEmail,
   updateUserBalance,
   createTransaction,
@@ -13,6 +12,7 @@ import {
   updateUserProfilePicture,
   DEFAULT_SUSPENSION_MESSAGE,
 } from '../services/adminService'
+import UserPicker from './UserPicker'
 
 const STORAGE_KEY = 'securebank_admin'
 const NOTIF_KEY = 'securebank_notifications'
@@ -26,10 +26,7 @@ function formatBalance(num) {
 // ─────────────────────────────────────────────────────────────
 export default function AdminApp({ onLogout, onRevoke }) {
   // ── User Selection State ───────────────────────────────────
-  const [allUsers, setAllUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
-  const [emailSearch, setEmailSearch] = useState('')
-  const [usersLoading, setUsersLoading] = useState(false)
   const [userTransactions, setUserTransactions] = useState([])
 
   // ── UI State ────────────────────────────────────────────────
@@ -124,21 +121,6 @@ export default function AdminApp({ onLogout, onRevoke }) {
     }
   }, [])
 
-  // ── Load All Users ─────────────────────────────────────────
-  const loadAllUsers = async () => {
-    setUsersLoading(true)
-    try {
-      // Use force: true to bypass circuit breaker for admin panel
-      const users = await fetchAllUsers({ force: true })
-      setAllUsers(users)
-      showToast('success', `Loaded ${users.length} users`)
-    } catch (err) {
-      showToast('error', 'Failed to load users: ' + err.message)
-    } finally {
-      setUsersLoading(false)
-    }
-  }
-
   // ── Select User by Email ─────────────────────────────────
   const handleUserSelect = async (email) => {
     if (!email) {
@@ -171,6 +153,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
         setUserTransactions(txns)
         
         showToast('success', `Selected: ${user.name}`)
+        return true
       } else {
         showToast('error', 'User not found')
         setSelectedUser(null)
@@ -181,6 +164,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
     } finally {
       setLoadingBtn(null)
     }
+    return false
   }
 
   // ── Credit Account ─────────────────────────────────────────
@@ -583,13 +567,6 @@ export default function AdminApp({ onLogout, onRevoke }) {
     })
   }
 
-  // ── Load users on mount ───────────────────────────────────
-  // NOTE: Disabled auto-load to prevent Firestore resource-exhausted errors.
-  // Users must click "Refresh Users" button to load the list.
-  // useEffect(() => {
-  //   loadAllUsers()
-  // }, [])
-
   return (
     <div className="admin-shell admin-shell--sidebar">
       {/* ── Toast notification ──────────────────────────── */}
@@ -617,45 +594,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
         </div>
         
         {/* User Selector */}
-        <div className="admin-user-selector">
-          <label className="admin-label">Select User by Email</label>
-          <div className="admin-user-search">
-            <input
-              type="email"
-              className="admin-input"
-              placeholder="Search email..."
-              value={emailSearch}
-              onChange={(e) => setEmailSearch(e.target.value)}
-              list="user-emails"
-            />
-            <datalist id="user-emails">
-              {allUsers.map((u) => (
-                <option key={u.uid} value={u.email}>
-                  {u.name} - {u.email}
-                </option>
-              ))}
-            </datalist>
-            <button
-              className="admin-btn admin-btn--small"
-              onClick={() => handleUserSelect(emailSearch)}
-              disabled={loadingBtn === 'select-user'}
-            >
-              {loadingBtn === 'select-user' ? '...' : 'Select'}
-            </button>
-          </div>
-          <button
-            className="admin-btn admin-btn--secondary admin-btn--small"
-            onClick={loadAllUsers}
-            disabled={usersLoading}
-          >
-            {usersLoading ? 'Loading...' : '🔄 Refresh Users'}
-          </button>
-          {allUsers.length === 0 && !usersLoading && (
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '8px', fontStyle: 'italic' }}>
-              💡 Click "Refresh Users" to load the user list
-            </p>
-          )}
-        </div>
+        <UserPicker selectedUser={selectedUser} onSelect={handleUserSelect} />
 
         <nav className="admin-sidebar-nav">
           {[
@@ -684,7 +623,7 @@ export default function AdminApp({ onLogout, onRevoke }) {
         )}
 
         {/* ── Session controls ──────────────────────── */}
-        <div style={{ padding: '12px 12px 8px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="admin-session-controls">
           {onLogout && (
             <button onClick={onLogout} style={{
               width: '100%', padding: '9px 12px', borderRadius: 8,

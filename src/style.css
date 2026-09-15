@@ -305,6 +305,12 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
 }
+.admin-session-controls {
+  padding: 12px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 
 /* ── Admin Toast ───────────────────────────────────────────── */
 .admin-toast {
@@ -357,8 +363,7 @@ a { color: inherit; text-decoration: none; }
     width: 100%;
     min-height: auto;
     position: static;
-    flex-direction: row;
-    overflow-x: auto;
+    flex-direction: column;
     padding: var(--sp-2) 0;
     border-right: none;
     border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -370,13 +375,19 @@ a { color: inherit; text-decoration: none; }
     gap: 4px;
     padding: 0 var(--sp-3);
     flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
   }
   .admin-sidebar-btn {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
     white-space: nowrap;
     padding: var(--sp-2) var(--sp-3);
     font-size: 0.75rem;
   }
   .admin-sidebar-btn-icon { font-size: 0.9rem; }
+  .admin-session-controls { flex-direction: row; }
 }
 
 /* ── Utility: text ─────────────────────────────────────────── */
@@ -8588,20 +8599,116 @@ button:active {
 
 /* ── User Selector in Sidebar ───────────────────────────────── */
 .admin-user-selector {
-  padding: var(--sp-4) var(--sp-5);
+  width: 100%;
+  min-width: 0;
+  padding: var(--sp-3);
   border-bottom: 1px solid rgba(255,255,255,0.06);
   margin-bottom: var(--sp-4);
 }
 
-.admin-user-search {
+.admin-user-trigger {
   display: flex;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.24);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
 }
+.admin-user-trigger svg { flex-shrink: 0; }
+.admin-user-trigger-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.admin-user-trigger-label { color: #e5c96e; font-weight: 600; }
+.admin-user-picker { padding-top: 12px; min-width: 0; }
+.admin-user-picker .admin-label { color: #d6dce5; letter-spacing: 0; }
+.admin-user-picker .admin-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+.admin-user-picker-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #c6cedb;
+}
+.admin-user-refresh {
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: #e5c96e;
+  font-size: 13px;
+  cursor: pointer;
+}
+.admin-user-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(360px, 42dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.admin-user-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  background: transparent;
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.admin-user-option:hover,
+.admin-user-option[aria-pressed="true"] { background: rgba(201,162,58,0.14); }
+.admin-user-selector button:focus-visible { outline: 2px solid #e5c96e; outline-offset: -2px; }
+.admin-user-selector button:disabled { opacity: 0.65; cursor: wait; }
+.admin-user-option-email { color: #c6cedb; font-size: 13px; }
+.admin-user-option-account { color: #a8b4c8; font-size: 12px; }
+.admin-user-picker-error,
+.admin-user-picker-empty { margin: 8px 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.admin-user-picker-error { color: #ffb4b4; }
+.admin-user-picker-empty { color: #c6cedb; }
+.admin-user-lookup { width: 100%; min-height: 44px; }
 
-.admin-user-search .admin-input {
-  flex: 1;
-  margin-bottom: 0;
+.admin-user-banner { flex-wrap: wrap; gap: var(--sp-3); }
+.admin-user-info { flex: 1 1 200px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.admin-user-stats { flex-wrap: wrap; max-width: 100%; }
+.admin-stat-value { white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .admin-user-selector { margin-bottom: 4px; }
+  .admin-user-info { flex-basis: auto; }
+  .admin-toast {
+    top: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 12px;
+    right: 12px;
+    overflow-wrap: anywhere;
+    animation: none;
+  }
 }
 
 .admin-btn {

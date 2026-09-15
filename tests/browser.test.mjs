@@ -212,3 +212,71 @@ test('complete app: sign in, preserve transfer at lock, debit, and switch accoun
     assert.deepEqual(errors, [])
   } finally { await context.close() }
 })
+
+test('admin user selector stays readable and searchable on mobile and desktop', async () => {
+  const admin = await createAccount('picker-admin', { isAdmin: true })
+  const name = 'Alexandria Catherine Montgomery-Wellington'
+  const email = `alexandria.montgomery.wellington.${crypto.randomUUID()}@example.test`
+  await createAccount('picker-user', { name, email, accountNumber: '9012345678', balance: 3518504, balanceCents: 351850400 })
+  await createAccount('picker-second', { name: 'Zora Picker Test', accountNumber: '8123456789' })
+  for (const width of [320, 390, 768, 1365]) {
+    const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: width <= 700, hasTouch: width <= 700 })
+    try {
+      const page = await context.newPage()
+      const errors = []
+      page.on('pageerror', err => errors.push(err.message))
+      await page.goto('http://127.0.0.1:4179/tests/admin.html')
+      await page.getByRole('textbox', { name: 'Test admin email' }).fill(admin.email)
+      await page.getByRole('button', { name: 'Test admin sign in' }).click()
+      await page.getByRole('button', { name: 'Choose user' }).click()
+      const list = page.getByRole('list', { name: 'Users', exact: true })
+      const search = page.getByRole('searchbox', { name: 'Find user' })
+      const option = list.getByRole('button', { name: `${name} ${email} Account 9012345678`, exact: true })
+      await option.waitFor()
+      await page.screenshot({ path: fileURLToPath(new URL(`admin-user-list-${width}.png`, artifactDir)) })
+      await search.fill('Montgomery-Wellington')
+      await option.waitFor()
+      const optionBounds = await option.boundingBox()
+      assert.ok(optionBounds.width >= (width <= 700 ? width - 48 : 170))
+      assert.ok(optionBounds.x >= 0 && optionBounds.x + optionBounds.width <= width)
+      const clipped = await option.evaluate(element => [element, ...element.children].some(child => child.scrollWidth > child.clientWidth + 1))
+      assert.equal(clipped, false, `User details must not clip at ${width}px`)
+      if (width <= 700) {
+        assert.equal(await search.evaluate(element => getComputedStyle(element).fontSize), '16px')
+      }
+      await page.screenshot({ path: fileURLToPath(new URL(`admin-users-${width}.png`, artifactDir)) })
+      await option.click()
+      await page.locator('.admin-user-banner .admin-user-email').filter({ hasText: email }).waitFor()
+      await page.getByRole('button', { name: 'Change user', exact: false }).waitFor()
+      await list.waitFor({ state: 'detached' })
+      await page.screenshot({ path: fileURLToPath(new URL(`admin-selected-user-${width}.png`, artifactDir)), animations: 'disabled' })
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1), false, `Long user details must fit ${width}px`)
+      for (const value of await page.locator('.admin-user-banner .admin-stat-value').all()) {
+        const lines = await value.evaluate(element => {
+          const range = document.createRange()
+          range.selectNodeContents(element)
+          return new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size
+        })
+        assert.equal(lines, 1, `Balance and status must remain readable at ${width}px`)
+      }
+      await page.getByRole('button', { name: 'Change user', exact: false }).click()
+      await search.fill('no-such-customer')
+      await page.getByText('No matching users.', { exact: true }).waitFor()
+      await search.fill('8123456789')
+      await list.getByRole('button', { name: /Zora Picker Test/ }).click()
+      await page.locator('.admin-user-banner .admin-user-name').filter({ hasText: 'Zora Picker Test' }).waitFor()
+      await list.waitFor({ state: 'detached' })
+      const trigger = page.getByRole('button', { name: 'Change user', exact: false })
+      await trigger.click()
+      await search.fill(email)
+      await option.waitFor()
+      await search.press('Escape')
+      await list.waitFor({ state: 'detached' })
+      assert.equal(await trigger.evaluate(element => element === document.activeElement), true)
+      assert.equal(await page.locator('.admin-user-banner .admin-user-name').textContent(), 'Zora Picker Test')
+      const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)
+      assert.equal(horizontalOverflow, false, `Admin page must fit ${width}px`)
+      assert.deepEqual(errors, [])
+    } finally { await context.close() }
+  }
+})

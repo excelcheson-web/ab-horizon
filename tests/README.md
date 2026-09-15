@@ -19,6 +19,8 @@ Coverage includes signed-in transfers, two independent device sessions, concurre
 debits, insufficient funds, duplicate references, changed retry details, suspended
 accounts, unauthorized writes, network failure, user cache isolation, OTP expiry,
 one-time use, attempt limits, delivery failure, receipts, and PIN lock restoration.
+Admin checks cover user selection, name/email/account search, keyboard dismissal,
+and long user details without horizontal overflow at 320, 390, 768, and 1365 pixels.
 Browser screenshots are written to the ignored `test-results/` directory.
 
 ## Limits
