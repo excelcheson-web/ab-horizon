@@ -20,12 +20,12 @@ export async function createAccount(name, profile = {}) {
   return { uid, email, password }
 }
 
-export async function seedDocument(path, data) {
+export async function seedDocument(path, data, removedFields = []) {
   const fields = Object.fromEntries(Object.entries(data).map(([key, value]) => [key,
     typeof value === 'number' ? { doubleValue: value } :
       typeof value === 'boolean' ? { booleanValue: value } : { stringValue: value },
   ]))
-  const mask = new URLSearchParams(Object.keys(data).map(key => ['updateMask.fieldPaths', key]))
+  const mask = new URLSearchParams([...Object.keys(data), ...removedFields].map(key => ['updateMask.fieldPaths', key]))
   const response = await fetch(`${firestoreUrl}/${path}?${mask}`, {
     method: 'PATCH',
     headers: { authorization: 'Bearer owner', 'content-type': 'application/json' },

@@ -5,7 +5,9 @@ import {
   getCurrentUserUid,
   getTransactionsQuery,
   inferDirection,
+  loadTransferAccount,
 } from './accountLedger'
+import { parseAmountCents } from './money'
 
 const HISTORY_KEY = 'transfer_history'
 const DELETED_TXNS_KEY = 'deleted_transactions'
@@ -124,15 +126,23 @@ function isServerCommitError(err) {
     message.includes('missing or insufficient permissions')
 }
 
-function toServerCommitError(err) {
+function toServerCommitError(err, reference = '') {
   if (!isServerCommitError(err)) return err
   const message = err?.code === 'unavailable'
     ? 'Transfer confirmation is unavailable. Check your history before starting a new transfer, or retry this transfer.'
-    : 'Transaction was not completed because the bank server did not confirm the balance update. Please try again.'
-  const wrapped = new Error(message)
+    : 'Transfer blocked by account permissions. Contact support before trying again.'
+  const wrapped = new Error(`${message} Code: ${err.code || 'permission-denied'}.${reference ? ` Reference: ${reference}.` : ''}`)
   wrapped.code = err?.code || 'server-commit-failed'
   wrapped.cause = err
   return wrapped
+}
+
+export async function prepareTransfer(uid, amount, previousReference = '') {
+  try {
+    return await loadTransferAccount(uid, parseAmountCents(amount), previousReference)
+  } catch (err) {
+    throw toServerCommitError(err)
+  }
 }
 
 function readDeletedBuckets() {
@@ -223,7 +233,7 @@ export function removeTransactionFromLocalHistory(txnId, uid = null) {
 }
 
 export async function saveTransaction(txn, options = {}) {
-  const uid = options.uid || getCurrentUserUid()
+  const uid = options.uid || txn?.userId || getCurrentUserUid()
   const id = getTxnId(txn)
   if (!uid) throw new Error('You must be signed in before making a transaction.')
   if (!id) throw new Error('Transaction ID is required.')
@@ -246,7 +256,8 @@ export async function saveTransaction(txn, options = {}) {
       idempotencyKey: txn.idempotencyKey || txn.ref || id,
     })
   } catch (err) {
-    throw toServerCommitError(err)
+    console.error('[transfer] commit failed', { code: err.code || 'transfer-failed', reference: txn.ref || id })
+    throw toServerCommitError(err, txn.ref || id)
   }
 
   if (result?.serverCommitted !== true) {

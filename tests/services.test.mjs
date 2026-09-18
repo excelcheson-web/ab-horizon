@@ -46,6 +46,15 @@ test('normal profile without optional fields: transfer debits exactly once', asy
   assert.equal((await getDocs(collection(client.db, 'profiles', account.uid, 'transactions'))).size, 1)
 })
 
+test('regression: legacy decimal balances without stored cents can transfer', async () => {
+  await seedDocument(`profiles/${account.uid}`, { balance: 0.29 }, ['balanceCents'])
+  const txn = await transactions.saveTransaction(transfer('legacy-decimal', 0.01))
+  assert.equal(txn.balanceAfterCents, 28)
+  assert.equal((await profile()).balanceCents, 28)
+  await transactions.saveTransaction(transfer('legacy-decimal', 0.01))
+  assert.equal((await profile()).balanceCents, 28)
+})
+
 test('retry after a later transfer returns original receipt and current balance', async () => {
   await transactions.saveTransaction(transfer('earlier'))
   await transactions.saveTransaction(transfer('later', 125))
@@ -54,6 +63,15 @@ test('retry after a later transfer returns original receipt and current balance'
   assert.equal(retry.accountBalance, 19875)
   assert.equal((await profile()).balanceCents, 1987500)
   assert.equal(Number(localStorage.getItem('bank_balance')), 19875)
+})
+
+test('preparation allows recovering an existing debit when the remaining balance is lower', async () => {
+  await transactions.saveTransaction(transfer('response-lost'))
+  const ready = await transactions.prepareTransfer(account.uid, 30000, 'response-lost')
+  assert.equal(ready.balanceCents, 2000000)
+  await transactions.saveTransaction(transfer('response-lost'))
+  assert.equal((await profile()).balanceCents, 2000000)
+  await assert.rejects(transactions.prepareTransfer(account.uid, 30000, 'never-committed'), /Insufficient/)
 })
 
 test('a reused reference with different transfer details is rejected', async () => {
@@ -82,9 +100,36 @@ test('standalone transaction cannot be saved without the balance debit', async (
 
 test('permissions failure never becomes a local successful transfer', async () => {
   const other = await createAccount('other-user')
-  await assert.rejects(transactions.saveTransaction(transfer('forbidden'), { uid: other.uid, allowLocalFallback: true }), /not completed|signed in|permission/i)
+  await assert.rejects(transactions.saveTransaction(transfer('forbidden'), { uid: other.uid, allowLocalFallback: true }), { code: 'auth/user-mismatch' })
   assert.deepEqual(transactions.readCachedTransactions(other.uid), [])
   assert.equal((await profile()).balanceCents, 5000000)
+})
+
+test('expired authentication cannot transfer using a cached user identity', async () => {
+  localStorage.setItem('securebank_user', JSON.stringify({ uid: account.uid, email: account.email }))
+  await signOut(client.auth)
+  await assert.rejects(transactions.prepareTransfer(account.uid, 1), { code: 'auth/session-expired' })
+  await assert.rejects(transactions.saveTransaction(transfer('expired-session', 1)), { code: 'auth/session-expired' })
+  await signInWithEmailAndPassword(client.auth, account.email, account.password)
+  assert.equal((await profile()).balanceCents, 5000000)
+})
+
+test('transfer preparation uses the server balance and account restrictions', async () => {
+  localStorage.setItem('bank_balance', '999999')
+  await seedDocument(`profiles/${account.uid}`, { balance: 0.50, balanceCents: 50 })
+  await assert.rejects(transactions.prepareTransfer(account.uid, 1), /Insufficient/)
+  const ready = await transactions.prepareTransfer(account.uid, 0.25)
+  assert.equal(ready.balanceCents, 50)
+  await seedDocument(`profiles/${account.uid}`, { suspended: true })
+  await assert.rejects(transactions.prepareTransfer(account.uid, 0.25), /restricted/)
+})
+
+test('a prepared transfer cannot debit another account after the session changes', async () => {
+  const txn = { ...transfer('bound-account', 1), userId: account.uid }
+  const second = await createAccount('changed-session')
+  await signInWithEmailAndPassword(client.auth, second.email, second.password)
+  await assert.rejects(transactions.saveTransaction(txn), { code: 'auth/user-mismatch' })
+  assert.equal((await getDocFromServer(doc(client.db, 'profiles', second.uid))).data().balanceCents, 5000000)
 })
 
 test('two concurrent affordable transfers both commit their exact debits', async () => {

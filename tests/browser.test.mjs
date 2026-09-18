@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { createServer } from 'vite'
 import config from './config.mjs'
-import { createAccount } from './fixtures.mjs'
+import { createAccount, seedDocument } from './fixtures.mjs'
 
 let server, browser
 const artifactDir = new URL('../test-results/', import.meta.url)
@@ -77,6 +77,45 @@ test('desktop international OTP transfer updates a second device and survives re
     assert.equal(await second.getByTestId('history-count').textContent(), '1')
     assert.deepEqual(errors, [])
   } finally { await Promise.all(contexts.map(c => c.close())) }
+})
+
+test('regression: ambiguous mobile amounts are rejected before requesting an OTP', async () => {
+  const account = await createAccount('invalid-amount')
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  try {
+    const page = await context.newPage()
+    for (const type of ['local', 'international']) {
+      await login(page, account)
+      await fillTransfer(page, type, '20.224.71')
+      await page.getByRole('button', { name: 'Confirm Transfer', exact: true }).click()
+      await page.locator('.tf-error').filter({ hasText: /amount/i }).waitFor({ timeout: 5000 })
+      assert.equal(await page.getByRole('heading', { name: 'Security Verification' }).count(), 0)
+      await assertBalance(page, '50000.00')
+    }
+  } finally { await context.close() }
+})
+
+test('fresh mobile device transfers grouped USD amounts from a legacy account', async () => {
+  const account = await createAccount('legacy-mobile')
+  await seedDocument(`profiles/${account.uid}`, { balance: 50000.29 }, ['balanceCents'])
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  const desktop = await browser.newContext()
+  try {
+    const page = await mobile.newPage()
+    const second = await desktop.newPage()
+    await login(page, account)
+    await login(second, account)
+    await fillTransfer(page, 'international', '20,224.71')
+    await enterCode(page, await requestCode(page))
+    await page.getByRole('button', { name: 'Confirm Transfer', exact: true }).click()
+    await page.getByRole('heading', { name: 'Transfer Successful' }).waitFor()
+    await assertBalance(page, '29775.58')
+    await assertBalance(second, '29775.58')
+    await page.screenshot({ path: fileURLToPath(new URL('legacy-mobile-transfer.png', artifactDir)) })
+    await login(second, account)
+    await assertBalance(second, '29775.58')
+    assert.equal(await second.getByTestId('history-count').textContent(), '1')
+  } finally { await mobile.close(); await desktop.close() }
 })
 
 test('mobile local transfer deducts cents and generates a PDF receipt', async () => {

@@ -2,9 +2,10 @@ import { useState, useRef } from 'react'
 import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { sendOtp, verifyOtp } from '../services/otpService'
-import { readCachedTransactions, saveTransaction } from '../services/transactionService'
+import { prepareTransfer, readCachedTransactions, saveTransaction } from '../services/transactionService'
 import { checkUserSuspensionStatus } from '../services/adminService'
 import { getCurrentUserEmail, getCurrentUserUid } from '../services/accountLedger'
+import { parseAmountCents } from '../services/money'
 
 // Get last N unique recipients for a given transfer type from localStorage
 function getRecentRecipients(type, limit = 6) {
@@ -92,6 +93,7 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
   const [otpError, setOtpError] = useState('')
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
   const [pendingTxn, setPendingTxn] = useState(null)
+  const transferOwner = useRef(getCurrentUserUid())
   const otpRefs = useRef([])
   const [showHistory, setShowHistory] = useState(false)
   const [recentRecipients] = useState(() => getRecentRecipients('local'))
@@ -152,23 +154,33 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
       return
     }
 
-    const amt = parseFloat(amount.replace(/,/g, ''))
-    if (isNaN(amt) || amt <= 0) {
-      setError('Enter a valid amount.')
+    let amountCents
+    try {
+      amountCents = parseAmountCents(amount)
+    } catch (err) {
+      setError(err.message)
       return
     }
 
-    if (amt > balance) {
-      setError('Insufficient balance for this transfer.')
+    const amt = amountCents / 100
+    let account
+    setIsLoading(true)
+    setLoadingMsg('Checking account with server...')
+    try {
+      account = await prepareTransfer(transferOwner.current, amt, pendingTxn?.ref)
+    } catch (err) {
+      setError(err.message)
+      setIsLoading(false)
       return
     }
 
     // Build pending txn
-    const newBalance = balance - amt
+    const newBalance = (account.balanceCents - amountCents) / 100
     const ref = pendingTxn?.ref || genRef()
     setPendingTxn({
       id: pendingTxn?.id || Date.now(),
       ref,
+      userId: account.uid,
       type: 'local',
       beneficiary: beneficiary.trim(),
       accountNumber: accountNumber.trim(),
@@ -180,7 +192,6 @@ export default function LocalTransfer({ balance, onClose, onBalanceUpdate }) {
     })
 
     // Send OTP to registered email → then show OTP modal
-    window.console.clear()
     setOtpCode(['', '', '', '', '', ''])
     setOtpError('')
     setIsLoading(true)

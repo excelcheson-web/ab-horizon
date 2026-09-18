@@ -10,6 +10,7 @@ import {
   collection,
 } from 'firebase/firestore'
 import { auth, db } from './firebaseClient'
+import { parseAmountCents } from './money'
 
 export const BALANCE_KEY = 'bank_balance'
 export const BALANCE_OWNER_KEY = 'bank_balance_owner'
@@ -141,6 +142,41 @@ function normalizeTransactionId(id) {
   return String(id || `TXN-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`)
 }
 
+async function requireAccountSession(uid) {
+  await auth.authStateReady()
+  const user = auth.currentUser
+  if (!user || user.uid !== uid) {
+    const error = new Error('Your account session has changed or expired. Sign in to this account again before transferring.')
+    error.code = user ? 'auth/user-mismatch' : 'auth/session-expired'
+    throw error
+  }
+  await user.getIdToken()
+  if (auth.currentUser?.uid !== uid) {
+    const error = new Error('Your account session changed. Sign in to this account again before transferring.')
+    error.code = 'auth/user-mismatch'
+    throw error
+  }
+  return user
+}
+
+export async function loadTransferAccount(uid, amountCents, previousReference = '') {
+  await requireAccountSession(uid)
+  const snap = await getDocFromServer(doc(db, 'profiles', uid))
+  if (!snap.exists()) throw new Error('Account profile was not found. Contact support before transferring.')
+  const profile = snap.data()
+  const balanceCents = readBalanceCents(profile)
+  if (!Number.isSafeInteger(balanceCents) || balanceCents < 0) throw new Error('Account balance requires review. Contact support before transferring.')
+  const previous = previousReference ? await getDocFromServer(doc(db, 'profiles', uid, 'ledgerRequests', previousReference)) : null
+  // A lost response must not prevent recovering an already committed transfer.
+  const alreadyCommitted = previous?.exists() && previous.data().amountCents === amountCents
+  if (!alreadyCommitted) {
+    if (profile.suspended) throw new Error(profile.suspendReason || 'This account is restricted. Contact support before transferring.')
+    if (balanceCents < amountCents) throw new Error('Insufficient balance for this transfer.')
+  }
+  cacheAccountSnapshot(uid, profile)
+  return { uid, balanceCents }
+}
+
 export async function commitAccountMutation({
   uid = getCurrentUserUid(),
   amount,
@@ -150,16 +186,17 @@ export async function commitAccountMutation({
   idempotencyKey,
 }) {
   if (!uid) throw new Error('User ID is required')
+  await requireAccountSession(uid)
 
-  const amountCents = centsFromAmount(amount)
-  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+  const normalizedType = type || txnData.type || 'debit'
+  const amountCents = ['local', 'international'].includes(normalizedType) ? parseAmountCents(amount) : centsFromAmount(amount)
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
     throw new Error('Enter a valid amount.')
   }
 
   const ref = txnData.ref || idempotencyKey || normalizeTransactionId(txnData.id)
   const txnId = normalizeTransactionId(txnData.id || ref)
   const requestId = String(idempotencyKey || ref || txnId)
-  const normalizedType = type || txnData.type || 'debit'
   const normalizedDirection = inferDirection(normalizedType, direction || txnData.direction)
   const sign = directionSign(normalizedDirection, normalizedType)
   const nowIso = new Date().toISOString()
@@ -216,6 +253,10 @@ export async function commitAccountMutation({
     const currentCents = readBalanceCents(profile)
     observedBalanceCents = currentCents
     const nextCents = currentCents + (sign * amountCents)
+
+    if (!Number.isSafeInteger(currentCents) || !Number.isSafeInteger(nextCents)) {
+      throw new Error('Account balance requires review. The transaction was not processed.')
+    }
 
     if (nextCents < 0) {
       throw new Error('Insufficient balance for this transaction.')
