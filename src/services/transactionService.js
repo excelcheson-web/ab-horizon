@@ -1,5 +1,5 @@
 import { collection, deleteDoc, doc, getDocs, onSnapshot, setDoc } from 'firebase/firestore'
-import { db } from './firebaseClient'
+import { auth, db } from './firebaseClient'
 import {
   commitAccountMutation,
   getCurrentUserUid,
@@ -14,6 +14,7 @@ const DELETED_TXNS_KEY = 'deleted_transactions'
 const GLOBAL_DELETED_BUCKET = '__global'
 
 const activeListeners = new Map()
+const SERVER_TRANSFER_TYPES = new Set(['local', 'international'])
 
 export function getTransactionHistoryKey(uid = getCurrentUserUid()) {
   return uid ? `${HISTORY_KEY}:${uid}` : HISTORY_KEY
@@ -137,6 +138,77 @@ function toServerCommitError(err, reference = '') {
   return wrapped
 }
 
+function isLocalDevHost() {
+  if (typeof window === 'undefined') return false
+  return ['localhost', '127.0.0.1'].includes(window.location.hostname)
+}
+
+function shouldUseServerTransfer(txn, options) {
+  if (options.forceClientCommit) return false
+  if (!SERVER_TRANSFER_TYPES.has(txn?.type)) return false
+  if (typeof window === 'undefined') return false
+  if (typeof window !== 'undefined' && window.__USE_TRANSFER_API__ === true) return true
+  return !isLocalDevHost()
+}
+
+async function saveTransactionViaServer(txn, uid, id) {
+  await auth.authStateReady()
+  const user = auth.currentUser
+  if (!user || user.uid !== uid) {
+    const error = new Error('Your account session has changed or expired. Sign in to this account again before transferring.')
+    error.code = user ? 'auth/user-mismatch' : 'auth/session-expired'
+    throw error
+  }
+
+  const token = await user.getIdToken()
+  const res = await fetch('/api/transfers/submit', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      transaction: {
+        ...txn,
+        id,
+        ref: txn.ref || id,
+        userId: uid,
+      },
+    }),
+  })
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || 'Transfer server did not confirm the balance update. Please try again.')
+    err.code = data.code || `transfer-server-${res.status}`
+    err.reference = data.reference || txn.ref || id
+    throw err
+  }
+
+  return data
+}
+
+function canFallbackToClientCommit(err) {
+  return err?.code === 'server-not-configured' ||
+    err?.code === 'transfer-server-404' ||
+    err?.code === 'transfer-server-405'
+}
+
+async function commitTransactionFromClient(txn, uid, id) {
+  return commitAccountMutation({
+    uid,
+    amount: txn.amount,
+    direction: inferDirection(txn.type, txn.direction),
+    type: txn.type,
+    txnData: {
+      ...txn,
+      id,
+      ref: txn.ref || id,
+    },
+    idempotencyKey: txn.idempotencyKey || txn.ref || id,
+  })
+}
+
 export async function prepareTransfer(uid, amount, previousReference = '') {
   try {
     return await loadTransferAccount(uid, parseAmountCents(amount), previousReference)
@@ -242,22 +314,33 @@ export async function saveTransaction(txn, options = {}) {
   }
 
   let result
-  try {
-    result = await commitAccountMutation({
-      uid,
-      amount: txn.amount,
-      direction: inferDirection(txn.type, txn.direction),
-      type: txn.type,
-      txnData: {
-        ...txn,
-        id,
-        ref: txn.ref || id,
-      },
-      idempotencyKey: txn.idempotencyKey || txn.ref || id,
-    })
-  } catch (err) {
-    console.error('[transfer] commit failed', { code: err.code || 'transfer-failed', reference: txn.ref || id })
-    throw toServerCommitError(err, txn.ref || id)
+  if (shouldUseServerTransfer(txn, options)) {
+    try {
+      result = await saveTransactionViaServer(txn, uid, id)
+    } catch (err) {
+      if (canFallbackToClientCommit(err)) {
+        console.warn('[transfer] secure transfer server unavailable; using client ledger path until Cloudflare secrets are configured.', {
+          code: err.code,
+          reference: err.reference || txn.ref || id,
+        })
+        try {
+          result = await commitTransactionFromClient(txn, uid, id)
+        } catch (fallbackErr) {
+          console.error('[transfer] fallback commit failed', { code: fallbackErr.code || 'transfer-failed', reference: txn.ref || id })
+          throw toServerCommitError(fallbackErr, txn.ref || id)
+        }
+      } else {
+        console.error('[transfer] server commit failed', { code: err.code || 'transfer-failed', reference: err.reference || txn.ref || id })
+        throw toServerCommitError(err, err.reference || txn.ref || id)
+      }
+    }
+  } else {
+    try {
+      result = await commitTransactionFromClient(txn, uid, id)
+    } catch (err) {
+      console.error('[transfer] commit failed', { code: err.code || 'transfer-failed', reference: txn.ref || id })
+      throw toServerCommitError(err, txn.ref || id)
+    }
   }
 
   if (result?.serverCommitted !== true) {

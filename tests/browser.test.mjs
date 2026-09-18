@@ -140,6 +140,52 @@ test('mobile local transfer deducts cents and generates a PDF receipt', async ()
   } finally { await context.close() }
 })
 
+test('transfer confirmation can commit through the server API path', async () => {
+  const context = await browser.newContext()
+  try {
+    const page = await context.newPage()
+    await page.addInitScript(() => { window.__USE_TRANSFER_API__ = true })
+    let apiCall
+    await context.route('**/api/transfers/submit', async (route) => {
+      const request = route.request()
+      apiCall = {
+        authorization: request.headers().authorization || '',
+        body: request.postDataJSON(),
+      }
+      const txn = apiCall.body.transaction
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          serverCommitted: true,
+          transactionId: txn.id,
+          balanceAfter: 49975,
+          balanceAfterCents: 4997500,
+          transaction: {
+            ...txn,
+            amount: 25,
+            amountCents: 2500,
+            balanceAfter: 49975,
+            balanceAfterCents: 4997500,
+            status: 'completed',
+          },
+        }),
+      })
+    })
+
+    await login(page, await createAccount('server-api'))
+    await fillTransfer(page, 'local', '25')
+    await enterCode(page, await requestCode(page))
+    await page.getByRole('button', { name: 'Confirm Transfer', exact: true }).click()
+    await page.getByRole('heading', { name: 'Transfer Successful' }).waitFor()
+    await assertBalance(page, '49975.00')
+    assert.match(apiCall.authorization, /^Bearer /)
+    assert.equal(apiCall.body.transaction.type, 'local')
+    assert.equal(apiCall.body.transaction.amount, 25)
+    assert.match(apiCall.body.transaction.ref, /^TXN-/)
+  } finally { await context.close() }
+})
+
 test('30-minute lock preserves the open form and unlocks with the PIN', async () => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
   try {
