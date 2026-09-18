@@ -3,9 +3,16 @@ import { generateTransferPDF } from '../services/pdfReceipt'
 import { sendTransferEmail } from '../services/emailNotification'
 import { sendOtp, verifyOtp } from '../services/otpService'
 import { prepareTransfer, readCachedTransactions, saveTransaction } from '../services/transactionService'
-import { checkUserSuspensionStatus } from '../services/adminService'
 import { getCurrentUserEmail, getCurrentUserUid } from '../services/accountLedger'
 import { parseAmountCents } from '../services/money'
+import {
+  clearPendingTransfer,
+  getTransferTimeout,
+  isDeadlineError,
+  readPendingTransfer,
+  rememberPendingTransfer,
+  withDeadline,
+} from '../services/transferFlow'
 
 // Get last N unique recipients for a given transfer type from localStorage
 function getRecentRecipients(type, limit = 6) {
@@ -79,14 +86,15 @@ const ShieldIcon = () => (
 )
 
 export default function InternationalTransfer({ balance, onClose, onBalanceUpdate, initialAmount }) {
+  const restoredPending = readPendingTransfer('international')
   const [form, setForm] = useState({
-    beneficiary: '',
-    iban: '',
-    swift: '',
-    bankName: '',
-    country: '',
-    amount: String(initialAmount || ''),
-    description: '',
+    beneficiary: restoredPending?.beneficiary || '',
+    iban: restoredPending?.iban || '',
+    swift: restoredPending?.swift || '',
+    bankName: restoredPending?.bankName || '',
+    country: restoredPending?.country || '',
+    amount: restoredPending?.amount ? String(restoredPending.amount) : String(initialAmount || ''),
+    description: restoredPending?.description || '',
   })
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState(null)
@@ -96,7 +104,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', ''])
   const [otpError, setOtpError] = useState('')
   const [otpConfirmMsg, setOtpConfirmMsg] = useState('')
-  const [pendingTxn, setPendingTxn] = useState(null)
+  const [pendingTxn, setPendingTxn] = useState(restoredPending)
   const transferOwner = useRef(getCurrentUserUid())
   const otpRefs = useRef([])
   const [showHistory, setShowHistory] = useState(false)
@@ -104,12 +112,14 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   const [txnHistory] = useState(() => getTransferHistory('international'))
 
   const update = (field, value) => {
+    clearPendingTransfer(pendingTxn?.ref, transferOwner.current)
     setPendingTxn(null)
     setForm((p) => ({ ...p, [field]: value }))
     setError('')
   }
 
   const fillFromRecipient = (t) => {
+    clearPendingTransfer(pendingTxn?.ref, transferOwner.current)
     setPendingTxn(null)
     setForm(p => ({
       ...p,
@@ -125,6 +135,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
   }
 
   const repeatTransfer = (t) => {
+    clearPendingTransfer(pendingTxn?.ref, transferOwner.current)
     setPendingTxn(null)
     setForm(p => ({
       ...p,
@@ -179,7 +190,11 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
     setIsLoading(true)
     setLoadingMsg('Checking account with server...')
     try {
-      account = await prepareTransfer(transferOwner.current, amt, pendingTxn?.ref)
+      account = await withDeadline(
+        prepareTransfer(transferOwner.current, amt, pendingTxn?.ref),
+        getTransferTimeout('prepare'),
+        'The account check is taking too long. Please check your connection and try again.'
+      )
     } catch (err) {
       setError(err.message)
       setIsLoading(false)
@@ -189,7 +204,7 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
     // Build pending transaction
     const newBalance = (account.balanceCents - amountCents) / 100
     const ref = pendingTxn?.ref || genRef()
-    setPendingTxn({
+    const nextPendingTxn = {
       id: pendingTxn?.id || Date.now(),
       ref,
       userId: account.uid,
@@ -204,35 +219,30 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
       balanceAfter: newBalance,
       date: pendingTxn?.date || new Date().toISOString(),
       direction: 'outgoing',
-    })
+    }
+    setPendingTxn(nextPendingTxn)
+    rememberPendingTransfer(nextPendingTxn)
 
-    // Step 1: SWIFT network connection
     setIsLoading(true)
-    setLoadingMsg('Connecting to SWIFT network…')
+    setLoadingMsg('Sending verification code...')
+    setOtpCode(['', '', '', '', '', ''])
+    setOtpError('')
 
-    setTimeout(() => {
-      // Step 2: Send OTP to registered email
-      setLoadingMsg('Sending verification code…')
-      setOtpCode(['', '', '', '', '', ''])
-      setOtpError('')
-
-      const email = getUserEmail()
-      sendOtp(
-        () => {
-          // Success
-          setOtpConfirmMsg(`A secure code has been sent to ${email}. Please check your inbox to confirm the transfer.`)
-          setIsLoading(false)
-          setOtpStep(true)
-        },
-        (err) => {
-          // Failure
-          console.warn('[InternationalTransfer] OTP delivery failed:', err.message)
-          setError('Could not send the verification email. Please try again.')
-          setIsLoading(false)
-        },
-        ref
+    const email = getUserEmail()
+    try {
+      await withDeadline(
+        sendOtp(email, ref),
+        getTransferTimeout('otp'),
+        'The verification email is taking too long. Please try sending the code again.'
       )
-    }, 3000)
+      setOtpConfirmMsg(`A secure code has been sent to ${email}. Please check your inbox to confirm the transfer.`)
+      setOtpStep(true)
+    } catch (err) {
+      console.warn('[InternationalTransfer] OTP delivery failed:', err.message)
+      setError(err.message || 'Could not send the verification email. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleOtpVerify = async () => {
@@ -253,37 +263,35 @@ export default function InternationalTransfer({ balance, onClose, onBalanceUpdat
 
     setOtpStep(false)
     setIsLoading(true)
-    setLoadingMsg('Checking account status...')
-    const uid = getCurrentUserUid()
-    const suspensionStatus = await checkUserSuspensionStatus(uid)
-    if (suspensionStatus.suspended) {
-      setIsLoading(false)
-      setPendingTxn(null)
-      window.dispatchEvent(new CustomEvent('show-suspend-modal', {
-        detail: { reason: suspensionStatus.reason }
-      }))
-      return
-    }
+    setLoadingMsg('Processing international transfer...')
 
     // OTP verified → process transfer
-    setLoadingMsg('Processing international transfer…')
-    setTimeout(() => setLoadingMsg('Routing through SWIFT gateway…'), 800)
 
-    setTimeout(async () => {
-      const txn = pendingTxn
+    const txn = pendingTxn
+    try {
+      const committed = await withDeadline(
+        saveTransaction(txn),
+        getTransferTimeout('commit'),
+        'The bank server is still confirming this transfer. The same reference was saved; please try Confirm Transfer again before starting a new transfer.'
+      )
+      const nextBalance = committed.accountBalance ?? committed.balanceAfter
+      onBalanceUpdate(nextBalance)
       try {
-        const committed = await saveTransaction(txn)
-        const nextBalance = committed.accountBalance ?? committed.balanceAfter
-        onBalanceUpdate(nextBalance)
-        sendTransferEmail(committed)
-
-        setIsLoading(false)
-        setReceipt(committed)
-      } catch (err) {
-        setIsLoading(false)
-        setError(err.message || 'Transfer failed. Please try again.')
+        await sendTransferEmail(committed)
+      } catch (mailErr) {
+        console.warn('[InternationalTransfer] receipt email failed:', mailErr.message)
       }
-    }, 1800)
+
+      clearPendingTransfer(txn?.ref, transferOwner.current)
+      setPendingTxn(null)
+      setReceipt(committed)
+    } catch (err) {
+      setError(isDeadlineError(err)
+        ? `${err.message} Reference: ${txn?.ref || 'pending'}.`
+        : err.message || 'Transfer failed. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   // ── Loading view ──

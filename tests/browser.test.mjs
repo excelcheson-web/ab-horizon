@@ -195,6 +195,42 @@ test('network failure after OTP never displays success or caches a completed tra
   } finally { await context.close() }
 })
 
+test('post-OTP server timeout returns to the form with a retryable reference', async () => {
+  const context = await browser.newContext()
+  const heldRoutes = []
+  try {
+    const page = await context.newPage()
+    await page.addInitScript(() => {
+      window.__TRANSFER_TIMEOUTS__ = { prepare: 5000, otp: 5000, commit: 1000 }
+    })
+    const account = await createAccount('confirmation-timeout')
+    await login(page, account)
+    await fillTransfer(page, 'local', '25')
+    const code = await requestCode(page)
+    await context.route('http://127.0.0.1:8080/**', route => heldRoutes.push(route))
+    await enterCode(page, code)
+    await page.getByRole('button', { name: 'Confirm Transfer', exact: true }).click()
+    await page.locator('.tf-error').filter({ hasText: /same reference was saved/i }).waitFor({ timeout: 10000 })
+    assert.equal(await page.locator('.server-spinner').count(), 0)
+    assert.equal(await page.getByRole('heading', { name: 'Transfer Successful' }).count(), 0)
+    assert.equal(await page.getByTestId('history-count').textContent(), '0')
+    assert.equal(await page.locator('.tf-form input').nth(0).inputValue(), 'Test Recipient')
+    assert.equal(await page.locator('.tf-form input').nth(3).inputValue(), '25')
+    const pending = await page.evaluate(() => {
+      const key = Object.keys(localStorage).find(item => item.startsWith('pending_transfer:'))
+      return key ? JSON.parse(localStorage.getItem(key) || '{}') : {}
+    })
+    assert.match(pending.ref || '', /^TXN-/)
+    for (const route of heldRoutes.splice(0)) await route.abort('failed').catch(() => {})
+    await context.unroute('http://127.0.0.1:8080/**')
+    await login(page, account)
+    await assertBalance(page, '50000.00')
+  } finally {
+    for (const route of heldRoutes.splice(0)) await route.abort('failed').catch(() => {})
+    await context.close()
+  }
+})
+
 test('email verification uses the delivered code without showing a backup code', async () => {
   const context = await browser.newContext()
   try {
