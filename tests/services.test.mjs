@@ -208,3 +208,49 @@ test('email delivery failure does not leave a valid OTP', async () => {
   await assert.rejects(otp.sendOtp(account.email, 'transfer'), /delivery/i)
   assert.equal(otp.getLastCode({ context: 'transfer' }), '')
 })
+
+test('production OTP delivery uses the server endpoint', async () => {
+  const originalWindow = globalThis.window
+  const originalFetch = globalThis.fetch
+  const calls = []
+  globalThis.window = { location: { hostname: 'optimaunion.com' }, dispatchEvent() {} }
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url, body: JSON.parse(options.body) })
+    return new Response(JSON.stringify({ success: true, id: 'server-mail' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  try {
+    await otp.sendOtp(account.email, 'TXN-SERVEROTP1')
+    const code = otp.getLastCode({ context: 'TXN-SERVEROTP1', email: account.email })
+    assert.match(code, /^\d{6}$/)
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].url, '/api/send-otp')
+    assert.equal(calls[0].body.email, account.email)
+    assert.equal(calls[0].body.code, code)
+    assert.equal(calls[0].body.type, 'transfer')
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalWindow === undefined) delete globalThis.window
+    else globalThis.window = originalWindow
+  }
+})
+
+test('OTP delivery falls back to EmailJS if the server endpoint fails', async () => {
+  const originalWindow = globalThis.window
+  const originalFetch = globalThis.fetch
+  globalThis.window = { location: { hostname: 'optimaunion.com' }, dispatchEvent() {} }
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Email service unavailable' }), {
+    status: 502,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  try {
+    await otp.sendOtp(account.email, 'TXN-FALLBACK1')
+    assert.match(otp.getLastCode({ context: 'TXN-FALLBACK1', email: account.email }), /^\d{6}$/)
+  } finally {
+    globalThis.fetch = originalFetch
+    if (originalWindow === undefined) delete globalThis.window
+    else globalThis.window = originalWindow
+  }
+})
